@@ -15,7 +15,9 @@ Add this to `.claude/settings.json` (project) or `~/.claude/settings.json` (user
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "waymark hook claude-code" }] }],
     "PreCompact": [{ "hooks": [{ "type": "command", "command": "waymark hook claude-code" }] }],
-    "Stop": [{ "hooks": [{ "type": "command", "command": "waymark hook claude-code", "async": true }] }],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "waymark hook claude-code", "async": true }] }
+    ],
     "SessionEnd": [{ "hooks": [{ "type": "command", "command": "waymark hook claude-code" }] }]
   }
 }
