@@ -33,9 +33,34 @@ afterAll(async () => {
 });
 
 describe('waymark mcp', () => {
-  it('lists the three tools', async () => {
+  it('lists the six tools', async () => {
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(['get_document', 'save_note', 'search']);
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      'claim_handoff',
+      'create_handoff',
+      'get_document',
+      'list_handoffs',
+      'save_note',
+      'search',
+    ]);
+  });
+
+  it('create, list and claim a handoff once', async () => {
+    const created = await client.callTool({
+      name: 'create_handoff',
+      arguments: { title: 'Wire up quokka', summary: 'Done A', next_steps: 'Do B', project: 'p1' },
+    });
+    expect(created.isError).toBeFalsy();
+    const id = textOf(created).replace('Saved handoff ', '');
+    const listed = await client.callTool({ name: 'list_handoffs', arguments: { project: 'p1' } });
+    expect(textOf(listed)).toContain(`- Wire up quokka (${id},`);
+    const claimed = await client.callTool({ name: 'claim_handoff', arguments: { id } });
+    expect(textOf(claimed)).toContain('## Claimed');
+    const again = await client.callTool({ name: 'claim_handoff', arguments: { id } });
+    expect(again.isError).toBe(true);
+    expect(textOf(again)).toBe(`Handoff already claimed: ${id}`);
+    const none = await client.callTool({ name: 'list_handoffs', arguments: { project: 'p1' } });
+    expect(textOf(none)).toBe('No open handoffs.');
   });
 
   it('save_note, search and get_document round-trip', async () => {
@@ -67,6 +92,6 @@ describe('waymark mcp', () => {
   it('rejects an out-of-range limit and stays alive', async () => {
     const r = await client.callTool({ name: 'search', arguments: { query: 'a', limit: 500 } });
     expect(r.isError).toBe(true);
-    expect((await client.listTools()).tools).toHaveLength(3);
+    expect((await client.listTools()).tools).toHaveLength(6);
   });
 });

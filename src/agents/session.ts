@@ -5,6 +5,7 @@ import type { WaymarkPaths } from '../paths.js';
 import { makeId, parseId, type WaymarkDoc } from '../store/doc.js';
 import { readDoc, writeDoc } from '../store/markdown.js';
 import { commitWiki } from '../store/wikigit.js';
+import { listOpenHandoffs } from './handoff.js';
 
 export type Turn = { role: 'user' | 'assistant'; text: string; timestamp?: string };
 
@@ -59,15 +60,19 @@ export function sessionDoc(meta: SessionMeta, turns: Turn[], now: Date): Waymark
   };
 }
 
-export function startContext(db: Db): string {
+export function startContext(db: Db, project?: string): string {
   let out = `Waymark knowledge base is available through the MCP tools \`search\`, \`get_document\` and \`save_note\`.
-Search it before changing unfamiliar code or when asked why something is built a certain way. Save durable decisions and conventions with save_note.
+Search it before changing unfamiliar code or when asked why something is built a certain way. Save durable decisions and conventions with save_note. Before stopping unfinished work, leave a handoff with create_handoff.
 `;
   const rows = db
     .prepare("SELECT id, title FROM docs WHERE kind = 'note' ORDER BY updated_at DESC LIMIT 5")
     .all() as Array<{ id: string; title: string }>;
   if (rows.length > 0) {
     out += `\nRecent notes:\n${rows.map((r) => `- ${r.title} (${r.id})`).join('\n')}\n`;
+  }
+  const handoffs = listOpenHandoffs(db, project);
+  if (handoffs.length > 0) {
+    out += `\nOpen handoffs for this project (claim one with claim_handoff before continuing it):\n${handoffs.map((h) => `- ${h.title} (${h.id})`).join('\n')}\n`;
   }
   return out;
 }
