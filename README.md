@@ -23,6 +23,8 @@ self-hostable project that covers both organizational knowledge and agent memory
 - **Source-linked answers**: every answer cites where it came from; conflicting sources are reconciled by recency, authority and proximity.
 - **Permission-aware**: results are scoped at query time to what the asking user is allowed to see.
 - **Agent-native delivery**: MCP server first, then CLI, HTTP API, and chat/web front-ends.
+- **Bots where the team works**: Microsoft Teams, Slack, Discord, GitHub, Linear and more, via pluggable adapters.
+- **Bring your own model or agent**: API keys for hosted/local models, plus keyless integration with agent tools such as Claude Code, Cursor and Hermes through MCP and hooks.
 - **Self-hosted, zero-LLM default**: capture, search and handoffs work without an API key; LLM and embeddings are optional upgrades.
 - **Transparent storage**: markdown (git-versioned) is the source of truth; indexes are rebuildable.
 

@@ -10,3 +10,6 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Internal notes (local only)
+docs/internal/
