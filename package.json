@@ -1,0 +1,27 @@
+{
+  "name": "waymark",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Open-source, self-hosted context layer for software teams and their AI coding agents.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "waymark": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run lint && npm run build && npm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
