@@ -8,7 +8,7 @@ Hermes talks to Waymark as an MCP client. See [mcp.md](mcp.md) for the `mcp_serv
 
 `waymark hook hermes` handles two Hermes shell hooks:
 
-- `pre_llm_call`: on the first turn of a session, injects Waymark start-up context into the user message (wrapped in `<waymark-context>` markers; stripped again before saving).
+- `pre_llm_call`: on the first turn of a session, injects Waymark start-up context (usage hints, recent notes, open handoffs for the project named after `cwd`) into the user message (wrapped in `<waymark-context>` markers; stripped again before saving).
 - `post_llm_call`: saves the conversation as a `session` doc (`agent/session/<session id>`, tags `harness:hermes` and `project:<cwd basename>`). The same doc is rewritten each turn with the full history. Secrets are redacted on write. `sender_id`, `model` and `platform` are never stored.
 
 Add to `~/.hermes/config.yaml` (or `%LOCALAPPDATA%\hermes\config.yaml` on Windows installs):

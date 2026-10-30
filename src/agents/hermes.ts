@@ -1,6 +1,13 @@
 import { openDb } from '../index/db.js';
 import type { WaymarkPaths } from '../paths.js';
-import { isInitialised, saveSession, sessionDoc, startContext, type Turn } from './session.js';
+import {
+  isInitialised,
+  projectOf,
+  saveSession,
+  sessionDoc,
+  startContext,
+  type Turn,
+} from './session.js';
 
 export interface HermesHookInput {
   hook_event_name: string;
@@ -57,9 +64,8 @@ export async function handleHermesHook(stdin: string, paths: WaymarkPaths): Prom
     if (input.extra?.is_first_turn !== true) return '';
     const db = openDb(paths.db);
     try {
-      // TODO(#38): pass project
       return JSON.stringify({
-        context: `${CONTEXT_OPEN}\n${startContext(db)}${CONTEXT_CLOSE}`,
+        context: `${CONTEXT_OPEN}\n${startContext(db, projectOf(cwd))}${CONTEXT_CLOSE}`,
       });
     } finally {
       db.close();

@@ -41,8 +41,8 @@ export async function syncAll(
           cursor: getState(db, source.id),
           log,
           emit: async (doc) => {
-            await writeDoc(paths.wiki, doc);
-            upsertDoc(db, doc, docRelPath(doc.id));
+            const { doc: stored } = await writeDoc(paths.wiki, doc);
+            upsertDoc(db, stored, docRelPath(doc.id));
           },
         });
         if (cursor !== null) setState(db, source.id, cursor);

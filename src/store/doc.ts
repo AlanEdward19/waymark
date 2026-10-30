@@ -1,3 +1,5 @@
+import { redact } from '../redact.js';
+
 export const DOC_KINDS = ['commit', 'pull_request', 'issue', 'session', 'note', 'handoff'] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 
@@ -39,9 +41,8 @@ export function parseId(id: string): { sourceId: string; kind: DocKind; nativeId
     !sourceId ||
     !nativeId ||
     !isDocKind(kind) ||
-    // keep ids inside the wiki dir
-    sourceId === '.' ||
-    sourceId === '..' ||
+    // keep ids inside the wiki dir and out of hidden dirs like .git
+    sourceId.startsWith('.') ||
     id.includes('\\') ||
     id.includes(':')
   ) {
@@ -58,7 +59,8 @@ export function docRelPath(id: string): string {
 /** `agent/<kind>/<yyyyMMdd-HHmmss>-<slug of title>`; shared by save_note and handoffs. */
 export function noteStampId(kind: DocKind, title: string, now: Date): string {
   const stamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-  const slug = title
+  // ids end up in file names, git history and search results: never derive them from a raw secret
+  const slug = redact(title)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')

@@ -12,10 +12,7 @@ export interface HandoffInput {
 }
 
 async function store(db: Db, wikiDir: string, doc: WaymarkDoc): Promise<WaymarkDoc> {
-  await writeDoc(wikiDir, doc);
-  // index the redacted copy from disk, not the raw input
-  const stored = await readDoc(wikiDir, doc.id);
-  if (!stored) throw new Error(`Handoff was not written: ${doc.id}`);
+  const { doc: stored } = await writeDoc(wikiDir, doc);
   upsertDoc(db, stored, docRelPath(doc.id));
   return stored;
 }

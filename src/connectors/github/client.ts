@@ -11,8 +11,9 @@ export function mapGithubError(err: unknown, owner: string, repo: string): unkno
     (e?.status === 403 || e?.status === 429) &&
     String(headers['x-ratelimit-remaining']) === '0'
   ) {
-    const reset = new Date(Number(headers['x-ratelimit-reset']) * 1000).toISOString();
-    return new Error(`GitHub rate limit exceeded; resets at ${reset}`);
+    const reset = Number(headers['x-ratelimit-reset']);
+    const when = Number.isFinite(reset) ? ` at ${new Date(reset * 1000).toISOString()}` : '';
+    return new Error(`GitHub rate limit exceeded; resets${when}`);
   }
   if (e?.status === 404) {
     return new Error(`GitHub repo ${owner}/${repo} not found or token lacks access`);

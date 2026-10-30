@@ -87,7 +87,7 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
         const nowDate = new Date();
         const now = nowDate.toISOString();
         const id = noteStampId('note', title, nowDate);
-        await writeDoc(wikiDir, {
+        const { doc: stored } = await writeDoc(wikiDir, {
           id,
           kind: 'note',
           sourceId: 'agent',
@@ -98,9 +98,6 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
           tags: tags ?? [],
           body,
         });
-        // index the redacted copy from disk, not the raw input
-        const stored = await readDoc(wikiDir, id);
-        if (!stored) throw new Error(`Note was not written: ${id}`);
         upsertDoc(db, stored, docRelPath(id));
         await commitWiki(wikiDir, `note: ${title}`);
         return text(`Saved ${id}`);

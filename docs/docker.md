@@ -12,11 +12,13 @@ docker build -t waymark .
 docker run --rm -v waymark:/data waymark init
 ```
 
-Edit `config.json` in the volume and add a git source that points at the mount path:
+Write `config.json` into the volume with a git source that points at the mount path (the image has no editor, so use `node`):
 
-```json
-{ "version": 1, "sources": [{ "id": "myrepo", "type": "git", "path": "/repos/myrepo" }] }
+```bash
+docker run --rm -v waymark:/data --entrypoint node waymark -e "require('fs').writeFileSync('/data/config.json', JSON.stringify({ version: 1, sources: [{ id: 'myrepo', type: 'git', path: '/repos/myrepo' }] }))"
 ```
+
+Or use a bind mount instead of a named volume (`-v /path/on/host/waymark:/data`) and edit `config.json` on the host.
 
 Mount the repository read-only and sync:
 

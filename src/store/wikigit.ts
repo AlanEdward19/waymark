@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { defaultRun, type RunGit } from '../git.js';
+import { redact } from '../redact.js';
 
 let warned = false;
 
@@ -56,7 +57,7 @@ export async function commitWiki(
         'commit',
         '-q',
         '-m',
-        message,
+        redact(message),
       ],
       wikiDir,
     );

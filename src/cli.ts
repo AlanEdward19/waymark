@@ -124,7 +124,7 @@ export async function main(argv: string[]): Promise<number> {
           }
         }
         const limit = values.limit === undefined ? undefined : Number(values.limit);
-        if (limit !== undefined && !Number.isFinite(limit)) {
+        if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1)) {
           throw new Error(`invalid limit "${values.limit}"`);
         }
         const paths = resolvePaths();

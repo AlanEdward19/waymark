@@ -3,7 +3,7 @@ import { loadConfig } from '../config.js';
 import { type Db, openDb, upsertDoc } from '../index/db.js';
 import type { WaymarkPaths } from '../paths.js';
 import { makeId, parseId, type WaymarkDoc } from '../store/doc.js';
-import { readDoc, writeDoc } from '../store/markdown.js';
+import { writeDoc } from '../store/markdown.js';
 import { commitWiki } from '../store/wikigit.js';
 import { listOpenHandoffs } from './handoff.js';
 
@@ -23,6 +23,11 @@ const LABELS: Record<SessionMeta['harness'], string> = {
   cursor: 'Cursor',
   hermes: 'Hermes',
 };
+
+/** Project name used for `project:` tags and handoff scoping: the cwd's folder name. */
+export function projectOf(cwd: string | undefined): string | undefined {
+  return cwd ? path.basename(cwd) : undefined;
+}
 
 function iso(ts: string | undefined, fallback: Date): string {
   const d = ts === undefined ? fallback : new Date(ts);
@@ -46,7 +51,8 @@ export function sessionDoc(meta: SessionMeta, turns: Turn[], now: Date): Waymark
   const transcript = [...(start > 0 ? [OMITTED] : []), ...blocks.slice(start)].join('\n\n');
 
   const tags = [`harness:${meta.harness}`];
-  if (meta.cwd) tags.push(`project:${path.basename(meta.cwd)}`);
+  const project = projectOf(meta.cwd);
+  if (project) tags.push(`project:${project}`);
   return {
     id: makeId('agent', 'session', meta.sessionId),
     kind: 'session',
@@ -78,9 +84,7 @@ Search it before changing unfamiliar code or when asked why something is built a
 }
 
 export async function saveSession(paths: WaymarkPaths, doc: WaymarkDoc): Promise<void> {
-  await writeDoc(paths.wiki, doc);
-  // index the redacted copy from disk, not the raw doc
-  const stored = (await readDoc(paths.wiki, doc.id)) ?? doc;
+  const { doc: stored } = await writeDoc(paths.wiki, doc);
   const db = openDb(paths.db);
   try {
     upsertDoc(db, stored, `${doc.id}.md`);

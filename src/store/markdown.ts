@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { redact } from '../redact.js';
-import { docRelPath, isDocKind, type WaymarkDoc } from './doc.js';
+import { docRelPath, isDocKind, parseId, type WaymarkDoc } from './doc.js';
 
 export function serializeDoc(doc: WaymarkDoc): string {
   const front: Record<string, unknown> = {
@@ -18,7 +18,7 @@ export function serializeDoc(doc: WaymarkDoc): string {
   front.updatedAt = doc.updatedAt;
   front.tags = doc.tags;
   const yaml = YAML.stringify(front, { lineWidth: 0 });
-  const body = doc.body.replace(/\n+$/, '');
+  const body = doc.body.replace(/\r\n?/g, '\n').replace(/\n+$/, '');
   return `---\n${yaml}---\n\n${body}\n`;
 }
 
@@ -72,18 +72,33 @@ export function parseDoc(text: string): WaymarkDoc {
     body,
   };
   if (f.url !== undefined) doc.url = str(f, 'url');
+  try {
+    parseId(doc.id);
+  } catch {
+    fail(`invalid id "${doc.id}"`);
+  }
   return doc;
 }
 
+/**
+ * Redacts and writes a doc. Returns the doc exactly as stored on disk: callers must index
+ * `doc` from the result, never their raw input.
+ */
 export async function writeDoc(
   wikiDir: string,
   doc: WaymarkDoc,
-): Promise<{ path: string; changed: boolean }> {
+): Promise<{ path: string; changed: boolean; doc: WaymarkDoc }> {
   const target = path.join(wikiDir, ...docRelPath(doc.id).split('/'));
-  const text = serializeDoc({ ...doc, title: redact(doc.title), body: redact(doc.body) });
+  const text = serializeDoc({
+    ...doc,
+    title: redact(doc.title),
+    body: redact(doc.body),
+    tags: doc.tags.map(redact),
+  });
+  const stored = parseDoc(text);
   // unreadable target (missing, or a directory) falls through to the write path
   const existing = await fs.readFile(target, 'utf8').catch(() => null);
-  if (existing === text) return { path: target, changed: false };
+  if (existing === text) return { path: target, changed: false, doc: stored };
   await fs.mkdir(path.dirname(target), { recursive: true });
   const tmp = `${target}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   try {
@@ -93,7 +108,7 @@ export async function writeDoc(
     await fs.rm(tmp, { force: true }).catch(() => {});
     throw err;
   }
-  return { path: target, changed: true };
+  return { path: target, changed: true, doc: stored };
 }
 
 export async function readDoc(wikiDir: string, id: string): Promise<WaymarkDoc | null> {
@@ -134,7 +149,11 @@ export async function* listDocs(
     });
   for (const file of files) {
     try {
-      yield { path: file, doc: parseDoc(await fs.readFile(file, 'utf8')) };
+      const doc = parseDoc(await fs.readFile(file, 'utf8'));
+      // a copied or moved file would otherwise shadow the real one in the index
+      const rel = path.relative(wikiDir, file).split(path.sep).join('/');
+      if (rel !== docRelPath(doc.id)) throw new Error(`file path does not match id "${doc.id}"`);
+      yield { path: file, doc };
     } catch (err) {
       console.error(`warn: skipping ${file}: ${(err as Error).message}`);
     }

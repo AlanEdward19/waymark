@@ -5,7 +5,11 @@ COPY .npmrc package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev \
+ # better-sqlite3 ships SQLite sources and prebuilds for every platform; keep this arch (glibc)
+ && cd node_modules/better-sqlite3 \
+ && rm -rf deps src \
+ && find prebuilds -type f ! -name "linux-$(node -p process.arch).node" -delete
 
 FROM node:24-bookworm-slim
 RUN apt-get update \
