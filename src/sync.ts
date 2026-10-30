@@ -7,6 +7,7 @@ import { getState, openDb, setState, upsertDoc } from './index/db.js';
 import type { WaymarkPaths } from './paths.js';
 import { docRelPath } from './store/doc.js';
 import { writeDoc } from './store/markdown.js';
+import { commitWiki } from './store/wikigit.js';
 
 function buildConnector(source: SourceConfig, configDir: string): Connector {
   switch (source.type) {
@@ -55,5 +56,9 @@ export async function syncAll(
   } finally {
     db.close();
   }
+  await commitWiki(
+    paths.wiki,
+    `sync: ${results.map((r) => `${r.sourceId} +${r.count}`).join(', ')}`,
+  );
   return results;
 }
