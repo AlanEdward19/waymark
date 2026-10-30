@@ -73,9 +73,13 @@ describe('waymark sync', () => {
   it('prints error line and exits 1 on failure', async () => {
     const paths = await home([{ id: 'gh', type: 'github', repo: 'o/r' }]);
     vi.stubEnv('WAYMARK_HOME', paths.home);
+    vi.stubEnv('GITHUB_TOKEN', '');
+    vi.stubEnv('GH_TOKEN', '');
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     expect(await main(['sync'])).toBe(1);
-    expect(out.mock.calls.join('')).toBe('gh: error: github connector not implemented yet\n');
+    expect(out.mock.calls.join('')).toBe(
+      'gh: error: Source "gh": set GITHUB_TOKEN (or GH_TOKEN) to sync GitHub. Tip: GITHUB_TOKEN=$(gh auth token) waymark sync\n',
+    );
   });
 });
