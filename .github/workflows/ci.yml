@@ -20,3 +20,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t waymark:ci .
+      - run: docker run --rm waymark:ci --version
