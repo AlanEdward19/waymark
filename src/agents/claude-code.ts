@@ -20,6 +20,13 @@ export interface HookInput {
   trigger?: string;
 }
 
+type Block = { type?: string; text?: unknown };
+const textOf = (blocks: Block[]) =>
+  blocks
+    .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('\n\n');
+
 export function parseTranscript(jsonl: string): Turn[] {
   const turns: Turn[] = [];
   for (const line of jsonl.split('\n')) {
@@ -27,6 +34,8 @@ export function parseTranscript(jsonl: string): Turn[] {
     let entry: {
       type?: string;
       isSidechain?: boolean;
+      turnOrigin?: unknown;
+      origin?: { kind?: unknown };
       timestamp?: unknown;
       message?: { content?: unknown };
     };
@@ -39,19 +48,21 @@ export function parseTranscript(jsonl: string): Turn[] {
     const content = entry.message?.content as unknown;
     let role: Turn['role'];
     let text: string;
-    if (entry.type === 'user' && typeof content === 'string') {
+    if (entry.type === 'user') {
+      // harness-injected turns (sub-agent reports, task notifications) are not the user's words;
+      // older transcripts have neither field, so only an explicit non-human origin is skipped
+      if (entry.turnOrigin !== undefined && entry.turnOrigin !== 'human') continue;
+      if (entry.origin?.kind !== undefined && entry.origin.kind !== 'human') continue;
+      if (typeof content === 'string') text = content;
+      // a prompt with attachments is an array of text blocks; tool results are not prompts
+      else if (Array.isArray(content) && !content.some((b: Block) => b?.type === 'tool_result')) {
+        text = textOf(content);
+      } else continue;
       role = 'user';
-      text = content.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
+      text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
     } else if (entry.type === 'assistant' && Array.isArray(content)) {
       role = 'assistant';
-      text = content
-        .filter(
-          (b: { type?: string; text?: unknown }) =>
-            b?.type === 'text' && typeof b.text === 'string',
-        )
-        .map((b) => b.text as string)
-        .join('\n\n')
-        .trim();
+      text = textOf(content).trim();
     } else {
       continue;
     }

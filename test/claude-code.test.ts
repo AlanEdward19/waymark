@@ -54,6 +54,30 @@ describe('parseTranscript', () => {
       { role: 'assistant', text: 'On it.', timestamp: '2026-10-01T10:05:00.000Z' },
     ]);
   });
+
+  // found by capturing a real session: prompts with attachments were dropped, and harness
+  // events (sub-agent reports, notifications) were stored as if the user had typed them
+  it('keeps array prompts and skips harness-injected turns', () => {
+    const jsonl = [
+      user('<side-sessions-event>a session finished</side-sessions-event>', { turnOrigin: 'sdk' }),
+      user('<task-notification>done</task-notification>', {
+        origin: { kind: 'task-notification' },
+        promptSource: 'system',
+      }),
+      user(
+        [
+          { type: 'text', text: '<system-reminder>ctx</system-reminder>' },
+          { type: 'text', text: 'install node 24 and go on' },
+        ],
+        { turnOrigin: 'human' },
+      ),
+      user('typed by the user', { turnOrigin: 'human' }),
+    ].join('\n');
+    expect(parseTranscript(jsonl).map((t) => t.text)).toEqual([
+      'install node 24 and go on',
+      'typed by the user',
+    ]);
+  });
 });
 
 describe('handleHook', () => {
