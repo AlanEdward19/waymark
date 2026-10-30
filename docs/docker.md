@@ -1,6 +1,6 @@
 # Docker
 
-The image runs the `waymark` CLI as the non-root `node` user (uid 1000). All state lives in the `/data` volume (`WAYMARK_HOME=/data`).
+The image (Alpine, ~70 MB compressed) runs the `waymark` CLI as the non-root `node` user (uid 1000). All state lives in the `/data` volume (`WAYMARK_HOME=/data`). sqlite-vec is compiled for musl during the build from its pinned, checksum-verified release.
 
 ```bash
 docker build -t waymark .
