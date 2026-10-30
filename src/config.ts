@@ -19,9 +19,15 @@ export const GithubSourceSchema = z.object({
   include: z.array(z.enum(['pulls', 'issues'])).default(['pulls', 'issues']),
 });
 export const SourceSchema = z.discriminatedUnion('type', [GitSourceSchema, GithubSourceSchema]);
+export const EmbeddingsSchema = z.object({
+  url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
+  model: z.string().min(1),
+  batchSize: z.number().int().min(1).max(256).default(32),
+});
 export const ConfigSchema = z.object({
   version: z.literal(1),
   sources: z.array(SourceSchema).default([]),
+  embeddings: EmbeddingsSchema.optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
@@ -47,12 +53,11 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
     throw invalid((err as Error).message);
   }
 
-  const rawSources = (raw as { sources?: unknown } | null)?.sources;
-  if (Array.isArray(rawSources)) {
-    for (const s of rawSources) {
-      if (s !== null && typeof s === 'object' && 'token' in s) {
-        throw invalid('tokens must come from environment variables, not config');
-      }
+  const r = raw as { sources?: unknown; embeddings?: unknown } | null;
+  const secretHolders = [...(Array.isArray(r?.sources) ? r.sources : []), r?.embeddings];
+  for (const s of secretHolders) {
+    if (s !== null && typeof s === 'object' && ('token' in s || 'apiKey' in s)) {
+      throw invalid('tokens must come from environment variables, not config');
     }
   }
 

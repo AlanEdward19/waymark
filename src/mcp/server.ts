@@ -5,7 +5,7 @@ import { claimHandoff, createHandoff, listOpenHandoffs } from '../agents/handoff
 import { loadConfig } from '../config.js';
 import { type Db, openDb, upsertDoc } from '../index/db.js';
 import { formatHits } from '../index/format.js';
-import { search } from '../index/search.js';
+import { hybridSearch, type QueryEmbedder, queryEmbedderFrom } from '../index/hybrid.js';
 import type { WaymarkPaths } from '../paths.js';
 import { DOC_KINDS, docRelPath, noteStampId } from '../store/doc.js';
 import { readDoc, serializeDoc, writeDoc } from '../store/markdown.js';
@@ -25,8 +25,12 @@ async function guard(fn: () => ToolResult | Promise<ToolResult>): Promise<ToolRe
   }
 }
 
-export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
-  const { db, wikiDir } = deps;
+export function createServer(deps: {
+  db: Db;
+  wikiDir: string;
+  embedQuery?: QueryEmbedder;
+}): McpServer {
+  const { db, wikiDir, embedQuery } = deps;
   const server = new McpServer({ name: 'waymark', version: '0.0.0' });
 
   server.registerTool(
@@ -34,7 +38,7 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
     {
       title: 'Search knowledge base',
       description:
-        "Search the team's knowledge base (commits, pull requests and review comments, issues, agent notes and sessions). Use before changing unfamiliar code or when asked why something is built a certain way. Returns ranked results with ids and source links; call get_document for full text.",
+        "Search the team's knowledge base (commits, pull requests and review comments, issues, agent notes and sessions). Use before changing unfamiliar code or when asked why something is built a certain way. Uses keyword and, when configured, semantic search. Returns ranked results with ids and source links; call get_document for full text.",
       inputSchema: z.object({
         query: z.string().min(1),
         kinds: z.array(z.enum(DOC_KINDS)).optional(),
@@ -44,7 +48,13 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     ({ query, kinds, sources, limit }) =>
-      guard(() => text(formatHits(search(db, { query, kinds, sourceIds: sources, limit })))),
+      guard(async () =>
+        text(
+          formatHits(
+            await hybridSearch(db, { query, kinds, sourceIds: sources, limit }, embedQuery),
+          ),
+        ),
+      ),
   );
 
   server.registerTool(
@@ -174,8 +184,9 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
 }
 
 export async function runStdio(paths: WaymarkPaths): Promise<void> {
-  await loadConfig(paths); // throws "not initialised" before anything is connected
+  // throws "not initialised" before anything is connected
+  const embedQuery = queryEmbedderFrom(await loadConfig(paths));
   const db = openDb(paths.db);
-  const server = createServer({ db, wikiDir: paths.wiki });
+  const server = createServer({ db, wikiDir: paths.wiki, embedQuery });
   await server.connect(new StdioServerTransport());
 }

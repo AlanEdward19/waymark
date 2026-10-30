@@ -6,7 +6,7 @@ Tools:
 
 | Tool           | What it does                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `search`       | Ranked search over commits, pull requests, issues, notes and sessions. Optional `kinds`, `sources`, `limit` (1-50). |
+| `search`       | Ranked keyword search (plus semantic search when embeddings are configured, see [search.md](search.md)) over commits, PRs, issues, notes, sessions and handoffs. Optional `kinds`, `sources`, `limit` (1-50).|
 | `get_document` | Full markdown of one document by id (ids come from `search`).                                                       |
 | `save_note`    | Save a durable note (`title`, `body`, optional `tags`) as `agent/note/...`. Secrets are redacted.                   |
 
