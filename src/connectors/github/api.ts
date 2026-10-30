@@ -16,6 +16,19 @@ export interface GhPull {
   base: { ref: string };
   head: { ref: string };
 }
+export interface GhIssue {
+  number: number;
+  title: string;
+  body: string | null;
+  state: 'open' | 'closed';
+  state_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  html_url: string;
+  user: GhUser | null;
+  labels: Array<{ name: string } | string>;
+  pull_request?: unknown;
+}
 export interface GhReview {
   id: number;
   user: GhUser | null;
@@ -46,6 +59,7 @@ export interface GhIssueComment {
 
 export interface GithubApi {
   pullPages(owner: string, repo: string): AsyncIterable<GhPull[]>; // sorted by updated desc
+  issuePages(owner: string, repo: string, since?: string): AsyncIterable<GhIssue[]>; // sort=updated, direction=asc
   reviews(owner: string, repo: string, n: number): Promise<GhReview[]>;
   reviewComments(owner: string, repo: string, n: number): Promise<GhReviewComment[]>;
   issueComments(owner: string, repo: string, n: number): Promise<GhIssueComment[]>;

@@ -10,6 +10,8 @@ import type {
   GithubApi,
 } from './api.js';
 import { createGithubApi } from './client.js';
+import { conversationSection, day, humanIssueComments, indent, isBot } from './conversation.js';
+import { syncIssues } from './issues.js';
 
 interface Cursor {
   pulls?: string;
@@ -25,11 +27,6 @@ function parseCursor(raw: string | null): Cursor {
     return {};
   }
 }
-
-// true when the user is missing or a bot
-const isBot = (u: GhUser | null) => u === null || u.type === 'Bot' || u.login.endsWith('[bot]');
-const day = (iso: string) => iso.slice(0, 10);
-const indent = (text: string, pad: string) => text.trim().replace(/\n/g, `\n${pad}`);
 
 export function renderPull(
   sourceId: string,
@@ -48,7 +45,7 @@ export function renderPull(
   const humanComments = reviewComments
     .filter((c) => !isBot(c.user))
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const humanConv = issueComments.filter((c) => !isBot(c.user));
+  const humanConv = humanIssueComments(issueComments);
 
   const events = [
     ...reviews.flatMap((r) =>
@@ -98,12 +95,8 @@ export function renderPull(
     sections.push(`## Review comments\n\n${threads.join('\n\n')}`);
   }
 
-  if (humanConv.length > 0) {
-    const lines = humanConv.map(
-      (c) => `- **@${login(c.user)}** (${day(c.created_at)}): ${indent(c.body ?? '', '  ')}`,
-    );
-    sections.push(`## Conversation\n\n${lines.join('\n')}`);
-  }
+  const conv = conversationSection(humanConv);
+  if (conv) sections.push(conv);
 
   return {
     id: makeId(sourceId, 'pull_request', String(pr.number)),
@@ -165,7 +158,11 @@ export function githubConnector(source: GithubSource, api?: GithubApi): Connecto
       count += r.count;
       if (r.cursor !== undefined) cursor.pulls = r.cursor;
     }
-    // TODO(#10): if (source.include.includes('issues')) run syncIssues here and set cursor.issues
+    if (source.include.includes('issues')) {
+      const r = await syncIssues(ctx, client, owner, repo, cursor.issues);
+      count += r.count;
+      if (r.cursor !== undefined) cursor.issues = r.cursor;
+    }
 
     return { cursor: JSON.stringify(cursor), count };
   };

@@ -45,6 +45,22 @@ export function createGithubApi(token: string): GithubApi {
         throw mapGithubError(err, owner, repo);
       }
     },
+    async *issuePages(owner, repo, since) {
+      try {
+        const pages = octokit.paginate.iterator(octokit.rest.issues.listForRepo, {
+          owner,
+          repo,
+          state: 'all',
+          sort: 'updated',
+          direction: 'asc',
+          per_page: 100,
+          ...(since === undefined ? {} : { since }),
+        });
+        for await (const page of pages) yield page.data as never;
+      } catch (err) {
+        throw mapGithubError(err, owner, repo);
+      }
+    },
     reviews: (owner, repo, n) =>
       wrap(owner, repo, () =>
         octokit.paginate(octokit.rest.pulls.listReviews, {
