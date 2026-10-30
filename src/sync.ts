@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { loadConfig, type SourceConfig } from './config.js';
 import { gitConnector } from './connectors/git.js';
+import { githubConnector } from './connectors/github/index.js';
 import type { Connector } from './connectors/types.js';
 import { getState, openDb, setState, upsertDoc } from './index/db.js';
 import type { WaymarkPaths } from './paths.js';
@@ -12,8 +13,7 @@ function buildConnector(source: SourceConfig, configDir: string): Connector {
     case 'git':
       return gitConnector(source, configDir);
     case 'github':
-      // TODO(#9): wire the GitHub connector here
-      throw new Error('github connector not implemented yet');
+      return githubConnector(source);
   }
 }
 
