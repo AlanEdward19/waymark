@@ -5,6 +5,7 @@ import { handleHook } from './agents/claude-code.js';
 import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
 import { resolvePaths } from './paths.js';
+import { syncAll } from './sync.js';
 import { VERSION } from './version.js';
 
 const USAGE = `Usage: waymark [options] <command>
@@ -14,9 +15,10 @@ Options:
   -h, --help     Print this help
 
 Commands:
+  hook <harness> Handle an agent hook event from stdin (claude-code)
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
-  hook <harness> Handle an agent hook event from stdin (claude-code)
+  sync           Sync configured sources (--source <id> for one)
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -26,6 +28,7 @@ export async function main(argv: string[]): Promise<number> {
       options: {
         version: { type: 'boolean', short: 'v' },
         help: { type: 'boolean', short: 'h' },
+        source: { type: 'string' },
       },
       allowPositionals: true,
     });
@@ -42,6 +45,24 @@ export async function main(argv: string[]): Promise<number> {
     }
 
     switch (command) {
+      case 'hook': {
+        // hooks must never break the user's session: always exit 0
+        try {
+          if (positionals[1] !== 'claude-code') {
+            process.stderr.write(`warn: waymark hook: unknown harness "${positionals[1] ?? ''}"\n`);
+            return 0;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+          const out = await handleHook(Buffer.concat(chunks).toString('utf8'), resolvePaths());
+          if (out !== '') process.stdout.write(`${out}\n`);
+        } catch (err) {
+          process.stderr.write(
+            `warn: waymark hook: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+        }
+        return 0;
+      }
       case 'init': {
         const paths = resolvePaths();
         const { created } = await initHome(paths);
@@ -63,27 +84,16 @@ export async function main(argv: string[]): Promise<number> {
         }
         return 0;
       }
-      case 'hook': {
-        // hooks must never break the user's session: always exit 0
-        try {
-          if (positionals[1] !== 'claude-code') {
-            process.stderr.write(`warn: waymark hook: unknown harness "${positionals[1] ?? ''}"
-`);
-            return 0;
-          }
-          const chunks: Buffer[] = [];
-          for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
-          const out = await handleHook(Buffer.concat(chunks).toString('utf8'), resolvePaths());
-          if (out !== '')
-            process.stdout.write(`${out}
-`);
-        } catch (err) {
-          process.stderr.write(
-            `warn: waymark hook: ${err instanceof Error ? err.message : String(err)}
-`,
+      case 'sync': {
+        const results = await syncAll(resolvePaths(), { only: values.source });
+        for (const r of results) {
+          process.stdout.write(
+            r.error
+              ? `${r.sourceId}: error: ${r.error}\n`
+              : `${r.sourceId}: ${r.count} documents\n`,
           );
         }
-        return 0;
+        return results.some((r) => r.error) ? 1 : 0;
       }
       default:
         throw new Error(`unknown command "${command}"`);
