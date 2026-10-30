@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { handleHook } from './agents/claude-code.js';
+import { HOOK_HANDLERS } from './agents/index.js';
 import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
 import { formatHits } from './index/format.js';
@@ -60,13 +60,15 @@ export async function main(argv: string[]): Promise<number> {
       case 'hook': {
         // hooks must never break the user's session: always exit 0
         try {
-          if (positionals[1] !== 'claude-code') {
+          const name = positionals[1] ?? '';
+          const handler = Object.hasOwn(HOOK_HANDLERS, name) ? HOOK_HANDLERS[name] : undefined;
+          if (!handler) {
             process.stderr.write(`warn: waymark hook: unknown harness "${positionals[1] ?? ''}"\n`);
             return 0;
           }
           const chunks: Buffer[] = [];
           for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
-          const out = await handleHook(Buffer.concat(chunks).toString('utf8'), resolvePaths());
+          const out = await handler(Buffer.concat(chunks).toString('utf8'), resolvePaths());
           if (out !== '') process.stdout.write(`${out}\n`);
         } catch (err) {
           process.stderr.write(
