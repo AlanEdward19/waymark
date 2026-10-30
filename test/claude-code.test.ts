@@ -72,11 +72,23 @@ describe('parseTranscript', () => {
         { turnOrigin: 'human' },
       ),
       user('typed by the user', { turnOrigin: 'human' }),
+      user('Another Claude session sent a message:\nreport', { turnOrigin: 'sdk' }),
     ].join('\n');
     expect(parseTranscript(jsonl).map((t) => t.text)).toEqual([
       'install node 24 and go on',
       'typed by the user',
     ]);
+  });
+
+  it('skips isMeta turns (e.g. a loaded skill text)', () => {
+    const jsonl = [user('# Some Skill\n...', { isMeta: true }), user('real prompt')].join('\n');
+    expect(parseTranscript(jsonl).map((t) => t.text)).toEqual(['real prompt']);
+  });
+
+  // a session started by another session gets its brief as an "sdk" prompt: it must be kept
+  it('keeps the brief of a session started by another session', () => {
+    const jsonl = user('Background: verify the hooks', { turnOrigin: 'sdk', promptSource: 'sdk' });
+    expect(parseTranscript(jsonl).map((t) => t.text)).toEqual(['Background: verify the hooks']);
   });
 });
 
@@ -137,6 +149,15 @@ describe('handleHook', () => {
     expect(stored?.body).toContain('**Assistant:** key');
     expect(stored?.body).not.toContain(secret);
     expect(fts.body).not.toContain(secret);
+  });
+
+  it('Stop captures the session too, without printing anything', async () => {
+    const paths = await setup();
+    const tp = path.join(dir, 't.jsonl');
+    await fs.writeFile(tp, user('captured on stop'));
+    const stdin = JSON.stringify({ ...input, hook_event_name: 'Stop', transcript_path: tp });
+    expect(await handleHook(stdin, paths)).toBe('');
+    expect((await readDoc(paths.wiki, 'agent/session/s-1'))?.title).toBe('captured on stop');
   });
 
   it('ignores invalid input, missing transcripts and uninitialised homes', async () => {

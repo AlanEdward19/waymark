@@ -17,6 +17,8 @@ export interface SessionMeta {
 
 const MAX_TRANSCRIPT_CHARS = 200_000;
 const OMITTED = '_[earlier turns omitted]_';
+const MAX_TURN_CHARS = 20_000;
+const TRUNCATED = '_[turn truncated]_';
 
 const LABELS: Record<SessionMeta['harness'], string> = {
   'claude-code': 'Claude Code',
@@ -40,7 +42,12 @@ export function sessionDoc(meta: SessionMeta, turns: Turn[], now: Date): Waymark
   const firstLine = first.text.split('\n')[0] ?? '';
   const title = firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine;
 
-  const blocks = turns.map((t) => `**${t.role === 'user' ? 'User' : 'Assistant'}:** ${t.text}`);
+  // one huge turn (a pasted log) must not push the rest of the session out of the cap
+  const clip = (s: string) =>
+    s.length > MAX_TURN_CHARS ? `${s.slice(0, MAX_TURN_CHARS)}\n\n${TRUNCATED}` : s;
+  const blocks = turns.map(
+    (t) => `**${t.role === 'user' ? 'User' : 'Assistant'}:** ${clip(t.text)}`,
+  );
   // ponytail: dumb cap; summarisation is the later consolidation epic
   let total = blocks.reduce((n, b) => n + b.length + 2, 0);
   let start = 0;

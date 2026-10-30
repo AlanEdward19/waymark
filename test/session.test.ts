@@ -32,14 +32,26 @@ describe('sessionDoc', () => {
   });
 
   it('caps the transcript keeping the newest turns', () => {
-    const turns = Array.from({ length: 5 }, (_, i) => ({
+    const turns = Array.from({ length: 12 }, (_, i) => ({
       role: 'user' as const,
-      text: `${i}`.repeat(60_000),
+      text: `${String.fromCharCode(97 + i)}`.repeat(19_000),
     }));
     const body = sessionDoc(meta, turns, now)?.body ?? '';
     expect(body).toContain('_[earlier turns omitted]_');
-    expect(body).toContain('4'.repeat(60_000));
-    expect(body).not.toContain('0'.repeat(60_000));
+    expect(body).toContain('l'.repeat(19_000));
+    expect(body).not.toContain('a'.repeat(19_000));
     expect(body.length).toBeLessThan(210_000);
+  });
+
+  it('clips one huge turn instead of dropping the rest of the session', () => {
+    const turns = [
+      { role: 'user' as const, text: 'first question' },
+      { role: 'user' as const, text: 'x'.repeat(300_000) },
+      { role: 'assistant' as const, text: 'answer' },
+    ];
+    const body = sessionDoc(meta, turns, now)?.body ?? '';
+    expect(body).toContain('first question');
+    expect(body).toContain('_[turn truncated]_');
+    expect(body).not.toContain('_[earlier turns omitted]_');
   });
 });

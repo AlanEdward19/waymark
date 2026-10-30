@@ -27,6 +27,9 @@ const textOf = (blocks: Block[]) =>
     .map((b) => b.text as string)
     .join('\n\n');
 
+const HARNESS_ENVELOPE =
+  /^(?:<side-sessions-event>|<task-notification>|<agent-message\b|Another Claude session sent a message|\[SYSTEM NOTIFICATION)/;
+
 export function parseTranscript(jsonl: string): Turn[] {
   const turns: Turn[] = [];
   for (const line of jsonl.split('\n')) {
@@ -34,8 +37,8 @@ export function parseTranscript(jsonl: string): Turn[] {
     let entry: {
       type?: string;
       isSidechain?: boolean;
-      turnOrigin?: unknown;
       origin?: { kind?: unknown };
+      isMeta?: boolean;
       timestamp?: unknown;
       message?: { content?: unknown };
     };
@@ -49,9 +52,9 @@ export function parseTranscript(jsonl: string): Turn[] {
     let role: Turn['role'];
     let text: string;
     if (entry.type === 'user') {
-      // harness-injected turns (sub-agent reports, task notifications) are not the user's words;
-      // older transcripts have neither field, so only an explicit non-human origin is skipped
-      if (entry.turnOrigin !== undefined && entry.turnOrigin !== 'human') continue;
+      // isMeta: injected by the harness (e.g. a loaded skill's full text), not typed
+      if (entry.isMeta === true) continue;
+      // task notifications carry a non-human origin kind; older transcripts have no origin
       if (entry.origin?.kind !== undefined && entry.origin.kind !== 'human') continue;
       if (typeof content === 'string') text = content;
       // a prompt with attachments is an array of text blocks; tool results are not prompts
@@ -60,6 +63,10 @@ export function parseTranscript(jsonl: string): Turn[] {
       } else continue;
       role = 'user';
       text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
+      // harness events (sub-agent reports, side-session notes) are not the user's words. They
+      // share turnOrigin "sdk" with prompts of sessions started by another session, so match
+      // their envelopes instead of the origin.
+      if (HARNESS_ENVELOPE.test(text)) continue;
     } else if (entry.type === 'assistant' && Array.isArray(content)) {
       role = 'assistant';
       text = textOf(content).trim();
@@ -84,7 +91,10 @@ export async function handleHook(stdin: string, paths: WaymarkPaths): Promise<st
     return '';
   }
   const event = input.hook_event_name;
-  if (event !== 'SessionStart' && event !== 'PreCompact' && event !== 'SessionEnd') return '';
+  // Stop runs after every turn: capture does not depend on the session ending cleanly
+  // (an app that kills the process may never send SessionEnd)
+  const capture = event === 'Stop' || event === 'PreCompact' || event === 'SessionEnd';
+  if (event !== 'SessionStart' && !capture) return '';
   if (!(await isInitialised(paths))) return ''; // not initialised: never break the user's session
 
   if (event === 'SessionStart') {
