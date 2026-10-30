@@ -6,6 +6,7 @@ import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
 import { formatHits } from './index/format.js';
 import { search } from './index/search.js';
+import { runStdio } from './mcp/server.js';
 import { resolvePaths } from './paths.js';
 import { DOC_KINDS, isDocKind } from './store/doc.js';
 import { readDoc, serializeDoc } from './store/markdown.js';
@@ -19,6 +20,7 @@ Options:
   -h, --help     Print this help
 
 Commands:
+  mcp            Run the MCP server over stdio
   hook <harness> Handle an agent hook event from stdin (claude-code)
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
@@ -73,6 +75,10 @@ export async function main(argv: string[]): Promise<number> {
         }
         return 0;
       }
+      case 'mcp':
+        // stdout carries only JSON-RPC from here on; the process stays alive on stdin
+        await runStdio(resolvePaths());
+        return 0;
       case 'init': {
         const paths = resolvePaths();
         const { created } = await initHome(paths);
