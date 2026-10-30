@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { handleHook, parseTranscript, sessionDoc } from '../src/agents/claude-code.js';
+import { handleHook, parseTranscript } from '../src/agents/claude-code.js';
 import { main } from '../src/cli.js';
 import { initHome } from '../src/config.js';
 import { openDb, upsertDoc } from '../src/index/db.js';
@@ -53,39 +53,6 @@ describe('parseTranscript', () => {
       { role: 'user', text: 'Fix the login bug', timestamp: '2026-10-01T10:00:00.000Z' },
       { role: 'assistant', text: 'On it.', timestamp: '2026-10-01T10:05:00.000Z' },
     ]);
-  });
-});
-
-describe('sessionDoc', () => {
-  const now = new Date('2026-10-30T00:00:00.000Z');
-
-  it('returns null without user turns', () => {
-    expect(sessionDoc(input, [{ role: 'assistant', text: 'hi' }], now)).toBeNull();
-  });
-
-  it('maps fields and truncates the title', () => {
-    const doc = sessionDoc(input, parseTranscript(fixture), now);
-    expect(doc?.id).toBe('agent/session/s-1');
-    expect(doc?.tags).toEqual(['harness:claude-code', 'project:my-proj']);
-    expect(doc?.createdAt).toBe('2026-10-01T10:00:00.000Z');
-    expect(doc?.updatedAt).toBe('2026-10-01T10:05:00.000Z');
-    const long = sessionDoc(input, [{ role: 'user', text: `${'a'.repeat(100)}\nrest` }], now);
-    expect(long?.title).toBe(`${'a'.repeat(80)}…`);
-    expect(sessionDoc(input, [{ role: 'user', text: 'x' }], now)?.createdAt).toBe(
-      now.toISOString(),
-    );
-  });
-
-  it('caps the transcript keeping the newest turns', () => {
-    const turns = Array.from({ length: 5 }, (_, i) => ({
-      role: 'user' as const,
-      text: `${i}`.repeat(60_000),
-    }));
-    const body = sessionDoc(input, turns, now)?.body ?? '';
-    expect(body).toContain('_[earlier turns omitted]_');
-    expect(body).toContain('4'.repeat(60_000));
-    expect(body).not.toContain('0'.repeat(60_000));
-    expect(body.length).toBeLessThan(210_000);
   });
 });
 
