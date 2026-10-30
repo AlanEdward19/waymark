@@ -15,7 +15,13 @@ For larger changes, please open an issue first so we can agree on the approach b
 
 ## Development setup
 
-The stack is not decided yet; this section will list requirements and commands once the first code lands.
+Waymark is TypeScript on Node.js 24 LTS ([ADR-0001](docs/adr/0001-stack.md)).
+
+1. Install [Node.js 24](https://nodejs.org/) (`.nvmrc` pins it for nvm/fnm users).
+2. Install dependencies: `npm ci`
+3. Run all checks (Biome lint/format, `tsc` build, Vitest tests): `npm run check`
+
+`npm run format` fixes formatting. Coding agents: read [AGENTS.md](AGENTS.md).
 
 ## Branches and pull requests
 
