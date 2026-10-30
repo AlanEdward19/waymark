@@ -38,6 +38,12 @@ describe('main', () => {
     expect(io.err()).toBe('error: unknown command "foo"\n');
   });
 
+  it('sync rejects more than one --source', async () => {
+    const io = capture();
+    expect(await main(['sync', '--source', 'a', '--source', 'b'])).toBe(1);
+    expect(io.err()).toBe('error: sync takes at most one --source\n');
+  });
+
   it('init creates the data dir, then reports it already exists', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'waymark-'));
     vi.stubEnv('WAYMARK_HOME', tmp);
