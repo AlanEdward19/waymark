@@ -6,9 +6,27 @@ Waymark answers "why is it built this way, who knows about it, and what did we a
 what lives in your code, issues, docs and conversations with what your agents learn while working.
 Agents (and humans) get one reconciled, source-linked answer instead of ten tabs of search results.
 
-**Docs:** [Claude Code hooks and MCP](docs/claude-code.md) · [MCP server](docs/mcp.md) · [Docker](docs/docker.md)
+**Status:** v0.1 MVP: git + GitHub (PRs, reviews, issues) ingest into a git-versioned markdown wiki, SQLite FTS5 search, MCP server and Claude Code hooks. Local and single-user; no auth yet.
 
-**Status:** early development. Project scaffold only (TypeScript on Node.js 24, see [ADR-0001](docs/adr/0001-stack.md)); the MVP is tracked in [#1](https://github.com/AlanEdward19/waymark/issues/1). See [Roadmap](#roadmap).
+## Quickstart
+
+Node 24 required. The package is not on npm yet.
+
+```bash
+git clone https://github.com/AlanEdward19/waymark && cd waymark
+npm ci && npm run build && npm link
+waymark init
+# edit ~/.waymark/config.json (see Configuration)
+GITHUB_TOKEN=$(gh auth token) waymark sync
+waymark search "why sqlite"
+```
+
+## Documentation
+
+- [docs/mcp.md](docs/mcp.md): MCP server (`waymark mcp`) tools and client setup.
+- [docs/claude-code.md](docs/claude-code.md): Claude Code integration via MCP and lifecycle hooks.
+- [docs/docker.md](docs/docker.md): run the CLI from the Docker image with a `/data` volume.
+- [docs/adr/0001-stack.md](docs/adr/0001-stack.md): ADR-0001, TypeScript on Node.js 24.
 
 ## Why
 
@@ -38,10 +56,18 @@ self-hostable project that covers both organizational knowledge and agent memory
 
 ## Roadmap
 
-1. Feature survey and issue breakdown (next step).
-2. Architecture decisions: language/runtime, storage layout, plugin model for sources.
-3. MVP: ingest a git repo + PRs, markdown store, FTS search, MCP server.
-4. Agent hooks, handoffs, more sources, permissions, front-ends.
+1. ✅ Feature survey and issue breakdown.
+2. ✅ Architecture decisions: language/runtime, storage layout, plugin model for sources.
+3. ✅ MVP: ingest a git repo + PRs, markdown store, FTS search, MCP server.
+
+Open epics:
+
+- [#15](https://github.com/AlanEdward19/waymark/issues/15) Hybrid retrieval (embeddings, RRF, recency)
+- [#16](https://github.com/AlanEdward19/waymark/issues/16) Organisational memory (conventions, expertise, conflicts)
+- [#17](https://github.com/AlanEdward19/waymark/issues/17) Agent harness integrations and handoffs
+- [#18](https://github.com/AlanEdward19/waymark/issues/18) Permissions, auth and remote access
+- [#19](https://github.com/AlanEdward19/waymark/issues/19) Chat bots (Teams, Slack, Discord, GitHub, Linear)
+- [#20](https://github.com/AlanEdward19/waymark/issues/20) More source connectors
 
 ## Configuration
 
