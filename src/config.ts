@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as z from 'zod';
 import type { WaymarkPaths } from './paths.js';
+import { ensureWikiRepo } from './store/wikigit.js';
 
 const SourceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
 
@@ -69,6 +70,7 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
 export async function initHome(paths: WaymarkPaths): Promise<{ created: boolean }> {
   await fs.mkdir(paths.wiki, { recursive: true });
   await fs.mkdir(path.dirname(paths.db), { recursive: true });
+  await ensureWikiRepo(paths.wiki);
   try {
     // 'wx' fails if the file exists: never overwrites user config.
     await fs.writeFile(paths.config, `${JSON.stringify({ version: 1, sources: [] }, null, 2)}\n`, {

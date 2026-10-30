@@ -1,22 +1,8 @@
-import { execFile } from 'node:child_process';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type { GitSource } from '../config.js';
+import { defaultRun, type RunGit } from '../git.js';
 import { makeId, type WaymarkDoc } from '../store/doc.js';
 import type { Connector } from './types.js';
-
-export type RunGit = (args: string[], cwd: string) => Promise<string>;
-
-const execFileP = promisify(execFile);
-
-const defaultRun: RunGit = async (args, cwd) => {
-  const { stdout } = await execFileP('git', args, {
-    cwd,
-    maxBuffer: 256 * 1024 * 1024,
-    encoding: 'utf8',
-  });
-  return stdout;
-};
 
 const LOG_FORMAT = '%x1e%H%x1f%an%x1f%aI%x1f%cI%x1f%s%x1f%b%x1f';
 

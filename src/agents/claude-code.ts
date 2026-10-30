@@ -5,6 +5,7 @@ import { type Db, openDb, upsertDoc } from '../index/db.js';
 import type { WaymarkPaths } from '../paths.js';
 import { makeId, type WaymarkDoc } from '../store/doc.js';
 import { readDoc, writeDoc } from '../store/markdown.js';
+import { commitWiki } from '../store/wikigit.js';
 
 export interface HookInput {
   session_id: string;
@@ -162,5 +163,6 @@ export async function handleHook(stdin: string, paths: WaymarkPaths): Promise<st
   } finally {
     db.close();
   }
+  await commitWiki(paths.wiki, `session: ${input.session_id}`);
   return '';
 }

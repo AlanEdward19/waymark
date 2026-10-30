@@ -8,6 +8,7 @@ import { search } from '../index/search.js';
 import type { WaymarkPaths } from '../paths.js';
 import { DOC_KINDS, docRelPath, makeId } from '../store/doc.js';
 import { readDoc, serializeDoc, writeDoc } from '../store/markdown.js';
+import { commitWiki } from '../store/wikigit.js';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; isError?: boolean };
 
@@ -106,6 +107,7 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
         const stored = await readDoc(wikiDir, id);
         if (!stored) throw new Error(`Note was not written: ${id}`);
         upsertDoc(db, stored, docRelPath(id));
+        await commitWiki(wikiDir, `note: ${title}`);
         return text(`Saved ${id}`);
       }),
   );
