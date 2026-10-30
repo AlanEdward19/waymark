@@ -1,12 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
+import { claimHandoff, createHandoff, listOpenHandoffs } from '../agents/handoff.js';
 import { loadConfig } from '../config.js';
 import { type Db, openDb, upsertDoc } from '../index/db.js';
 import { formatHits } from '../index/format.js';
 import { search } from '../index/search.js';
 import type { WaymarkPaths } from '../paths.js';
-import { DOC_KINDS, docRelPath, makeId } from '../store/doc.js';
+import { DOC_KINDS, docRelPath, noteStampId } from '../store/doc.js';
 import { readDoc, serializeDoc, writeDoc } from '../store/markdown.js';
 import { commitWiki } from '../store/wikigit.js';
 
@@ -83,15 +84,9 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
     },
     ({ title, body, tags }) =>
       guard(async () => {
-        const now = new Date().toISOString();
-        const stamp = now.replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-        const slug = title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .slice(0, 60)
-          .replace(/-+$/, '');
-        const id = makeId('agent', 'note', slug ? `${stamp}-${slug}` : stamp);
+        const nowDate = new Date();
+        const now = nowDate.toISOString();
+        const id = noteStampId('note', title, nowDate);
         await writeDoc(wikiDir, {
           id,
           kind: 'note',
@@ -109,6 +104,72 @@ export function createServer(deps: { db: Db; wikiDir: string }): McpServer {
         upsertDoc(db, stored, docRelPath(id));
         await commitWiki(wikiDir, `note: ${title}`);
         return text(`Saved ${id}`);
+      }),
+  );
+
+  server.registerTool(
+    'create_handoff',
+    {
+      title: 'Create handoff',
+      description:
+        'Leave a handoff for the next agent session in this project: what was done, where you stopped and the exact next steps. Use when stopping before the task is finished.',
+      inputSchema: z.object({
+        title: z.string().min(1).max(200),
+        summary: z.string().min(1),
+        next_steps: z.string().min(1),
+        project: z.string().min(1).max(100),
+        from: z.string().max(50).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    },
+    ({ title, summary, next_steps, project, from }) =>
+      guard(async () => {
+        const id = await createHandoff(db, wikiDir, {
+          title,
+          summary,
+          nextSteps: next_steps,
+          project,
+          from,
+        });
+        return text(`Saved handoff ${id}`);
+      }),
+  );
+
+  server.registerTool(
+    'list_handoffs',
+    {
+      title: 'List handoffs',
+      description: 'List open (unclaimed) handoffs, optionally for one project.',
+      inputSchema: z.object({ project: z.string().optional() }),
+      annotations: { readOnlyHint: true },
+    },
+    ({ project }) =>
+      guard(() => {
+        const rows = listOpenHandoffs(db, project);
+        return text(
+          rows.length === 0
+            ? 'No open handoffs.'
+            : rows.map((r) => `- ${r.title} (${r.id}, ${r.updatedAt.slice(0, 10)})`).join('\n'),
+        );
+      }),
+  );
+
+  server.registerTool(
+    'claim_handoff',
+    {
+      title: 'Claim handoff',
+      description:
+        'Claim an open handoff and get its full text. Each handoff can be claimed once; claim it only if you are going to continue that work now.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { readOnlyHint: false, idempotentHint: false },
+    },
+    ({ id }) =>
+      guard(async () => {
+        const r = await claimHandoff(db, wikiDir, id);
+        if (r.ok) return text(serializeDoc(r.doc));
+        return fail(
+          r.reason === 'not_found' ? `Handoff not found: ${id}` : `Handoff already claimed: ${id}`,
+        );
       }),
   );
 

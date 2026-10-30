@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { openDb } from '../index/db.js';
 import type { WaymarkPaths } from '../paths.js';
 import { isInitialised, saveSession, sessionDoc, startContext, type Turn } from './session.js';
@@ -75,7 +76,7 @@ export async function handleHook(stdin: string, paths: WaymarkPaths): Promise<st
       return JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'SessionStart',
-          additionalContext: startContext(db),
+          additionalContext: startContext(db, input.cwd ? path.basename(input.cwd) : undefined),
         },
       });
     } finally {

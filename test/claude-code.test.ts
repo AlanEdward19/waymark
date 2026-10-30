@@ -87,6 +87,9 @@ describe('handleHook', () => {
     );
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart');
     expect(out.hookSpecificOutput.additionalContext).toContain('- Use pnpm (me/note/n1)');
+    expect(out.hookSpecificOutput.additionalContext).toContain(
+      'leave a handoff with create_handoff.',
+    );
   });
 
   it('SessionEnd twice keeps one doc, updated and redacted', async () => {
