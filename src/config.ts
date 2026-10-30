@@ -23,6 +23,7 @@ export const ConfigSchema = z.object({
   sources: z.array(SourceSchema).default([]),
 });
 export type Config = z.infer<typeof ConfigSchema>;
+export type GitSource = z.infer<typeof GitSourceSchema>;
 export type SourceConfig = z.infer<typeof SourceSchema>;
 
 export async function loadConfig(paths: WaymarkPaths): Promise<Config> {

@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
 import { resolvePaths } from './paths.js';
+import { syncAll } from './sync.js';
 import { VERSION } from './version.js';
 
 const USAGE = `Usage: waymark [options] <command>
@@ -15,6 +16,7 @@ Options:
 Commands:
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
+  sync           Sync configured sources (--source <id> for one)
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -24,6 +26,7 @@ export async function main(argv: string[]): Promise<number> {
       options: {
         version: { type: 'boolean', short: 'v' },
         help: { type: 'boolean', short: 'h' },
+        source: { type: 'string' },
       },
       allowPositionals: true,
     });
@@ -60,6 +63,17 @@ export async function main(argv: string[]): Promise<number> {
           db.close();
         }
         return 0;
+      }
+      case 'sync': {
+        const results = await syncAll(resolvePaths(), { only: values.source });
+        for (const r of results) {
+          process.stdout.write(
+            r.error
+              ? `${r.sourceId}: error: ${r.error}\n`
+              : `${r.sourceId}: ${r.count} documents\n`,
+          );
+        }
+        return results.some((r) => r.error) ? 1 : 0;
       }
       default:
         throw new Error(`unknown command "${command}"`);
