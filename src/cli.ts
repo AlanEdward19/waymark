@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { initHome } from './config.js';
+import { resolvePaths } from './paths.js';
 import { VERSION } from './version.js';
 
 const USAGE = `Usage: waymark [options] <command>
@@ -10,7 +12,7 @@ Options:
   -h, --help     Print this help
 
 Commands:
-  (none yet)
+  init           Create the Waymark data directory and config
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -36,6 +38,16 @@ export async function main(argv: string[]): Promise<number> {
     }
 
     switch (command) {
+      case 'init': {
+        const paths = resolvePaths();
+        const { created } = await initHome(paths);
+        process.stdout.write(
+          created
+            ? `Initialised Waymark at ${paths.home}\n`
+            : `Waymark already initialised at ${paths.home}\n`,
+        );
+        return 0;
+      }
       default:
         throw new Error(`unknown command "${command}"`);
     }

@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { main } from '../src/cli.js';
 
@@ -32,5 +35,21 @@ describe('main', () => {
     expect(await main(['foo'])).toBe(1);
     expect(io.out()).toBe('');
     expect(io.err()).toBe('error: unknown command "foo"\n');
+  });
+
+  it('init creates the data dir, then reports it already exists', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'waymark-'));
+    vi.stubEnv('WAYMARK_HOME', tmp);
+    try {
+      const io = capture();
+      expect(await main(['init'])).toBe(0);
+      expect(await main(['init'])).toBe(0);
+      expect(io.out()).toBe(`Initialised Waymark at ${tmp}
+Waymark already initialised at ${tmp}
+`);
+    } finally {
+      vi.unstubAllEnvs();
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
   });
 });
