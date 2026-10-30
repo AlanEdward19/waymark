@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { handleHook } from './agents/claude-code.js';
 import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
 import { resolvePaths } from './paths.js';
@@ -14,6 +15,7 @@ Options:
   -h, --help     Print this help
 
 Commands:
+  hook <harness> Handle an agent hook event from stdin (claude-code)
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
   sync           Sync configured sources (--source <id> for one)
@@ -43,6 +45,24 @@ export async function main(argv: string[]): Promise<number> {
     }
 
     switch (command) {
+      case 'hook': {
+        // hooks must never break the user's session: always exit 0
+        try {
+          if (positionals[1] !== 'claude-code') {
+            process.stderr.write(`warn: waymark hook: unknown harness "${positionals[1] ?? ''}"\n`);
+            return 0;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+          const out = await handleHook(Buffer.concat(chunks).toString('utf8'), resolvePaths());
+          if (out !== '') process.stdout.write(`${out}\n`);
+        } catch (err) {
+          process.stderr.write(
+            `warn: waymark hook: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+        }
+        return 0;
+      }
       case 'init': {
         const paths = resolvePaths();
         const { created } = await initHome(paths);
