@@ -25,6 +25,7 @@ waymark search "why sqlite"
 
 - [docs/mcp.md](docs/mcp.md): MCP server (`waymark mcp`) tools and client setup.
 - [docs/claude-code.md](docs/claude-code.md): Claude Code integration via MCP and lifecycle hooks.
+- [docs/cursor.md](docs/cursor.md): Cursor integration via MCP and lifecycle hooks.
 - [docs/docker.md](docs/docker.md): run the CLI from the Docker image with a `/data` volume.
 - [docs/adr/0001-stack.md](docs/adr/0001-stack.md): ADR-0001, TypeScript on Node.js 24.
 
