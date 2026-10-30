@@ -21,7 +21,7 @@ Options:
 
 Commands:
   mcp            Run the MCP server over stdio
-  hook <harness> Handle an agent hook event from stdin (claude-code, hermes)
+  hook <harness> Handle an agent hook event from stdin (claude-code, cursor, hermes)
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
   sync           Sync configured sources (--source <id> for one)
