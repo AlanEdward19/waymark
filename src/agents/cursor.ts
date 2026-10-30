@@ -1,7 +1,14 @@
 import fs from 'node:fs/promises';
 import { openDb } from '../index/db.js';
 import type { WaymarkPaths } from '../paths.js';
-import { isInitialised, saveSession, sessionDoc, startContext, type Turn } from './session.js';
+import {
+  isInitialised,
+  projectOf,
+  saveSession,
+  sessionDoc,
+  startContext,
+  type Turn,
+} from './session.js';
 
 export interface CursorHookInput {
   hook_event_name: string;
@@ -84,12 +91,11 @@ export async function handleCursorHook(stdin: string, paths: WaymarkPaths): Prom
   if (event !== 'sessionStart' && event !== 'preCompact' && event !== 'sessionEnd') return '';
   if (!(await isInitialised(paths))) return ''; // not initialised: never break the user's session
 
-  const cwd = input.workspace_roots?.[0];
+  const cwd = Array.isArray(input.workspace_roots) ? input.workspace_roots[0] : undefined;
   if (event === 'sessionStart') {
     const db = openDb(paths.db);
     try {
-      // TODO(#38): pass project
-      return JSON.stringify({ additional_context: startContext(db) });
+      return JSON.stringify({ additional_context: startContext(db, projectOf(cwd)) });
     } finally {
       db.close();
     }

@@ -1,20 +1,39 @@
-FROM node:24-bookworm-slim AS build
+# syntax=docker/dockerfile:1.7
+# Alpine (musl) + one bundled JS file: only the two native modules ship as node_modules.
+FROM node:24-alpine AS build
 WORKDIR /app
-# .npmrc sets ignore-scripts so better-sqlite3 uses its prebuilt glibc binary (no C++ toolchain).
+RUN apk add --no-cache build-base sqlite-dev
+# .npmrc sets ignore-scripts so better-sqlite3 uses its prebuilt musl binary (no C++ toolchain).
 COPY .npmrc package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build && npm prune --omit=dev
+# esbuild inlines every pure-JS dependency (Octokit, MCP SDK, zod, yaml) into bundle/cli.mjs
+RUN npm run bundle
 
-FROM node:24-bookworm-slim
-RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates \
- && rm -rf /var/lib/apt/lists/* \
+# sqlite-vec only ships glibc binaries on npm, so build its single-file amalgamation for musl.
+# Pinned to the same version as package.json; checksum verified by BuildKit.
+ADD --checksum=sha256:3acd67cb4aff080c7050926fd3cf8227905fe5b7ee3829d8ee5024ab1283cf61 \
+    https://github.com/asg017/sqlite-vec/releases/download/v0.1.9/sqlite-vec-0.1.9-amalgamation.tar.gz \
+    /tmp/sqlite-vec.tar.gz
+RUN arch="$(node -p process.arch)" \
+ && mkdir /tmp/vec && tar -xzf /tmp/sqlite-vec.tar.gz -C /tmp/vec \
+ # it uses u_int8_t & co. without including sys/types.h (fine on glibc, not on musl)
+ && gcc -O3 -fPIC -shared -D_GNU_SOURCE -include sys/types.h /tmp/vec/sqlite-vec.c \
+      -o "node_modules/sqlite-vec-linux-$arch/vec0.so" -lm \
+ # runtime tree: the bundle plus the native modules it leaves external
+ && mkdir -p /out/node_modules/better-sqlite3 \
+ && cp -r node_modules/better-sqlite3/lib node_modules/better-sqlite3/package.json \
+      /out/node_modules/better-sqlite3/ \
+ && mkdir /out/node_modules/better-sqlite3/prebuilds \
+ && cp "node_modules/better-sqlite3/prebuilds/linuxmusl-$arch.node" /out/node_modules/better-sqlite3/prebuilds/ \
+ && cp -r node_modules/sqlite-vec "node_modules/sqlite-vec-linux-$arch" /out/node_modules/ \
+ && cp bundle/cli.mjs /out/cli.mjs
+
+FROM node:24-alpine
+RUN apk add --no-cache git \
  && mkdir /data && chown node:node /data
-COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/dist /app/dist
-COPY --from=build /app/package.json /app/package.json
+COPY --from=build /out /app
 # Env-based git config: mounted repos are owned by another uid ("dubious ownership").
 ENV WAYMARK_HOME=/data \
     GIT_CONFIG_COUNT=1 \
@@ -22,5 +41,5 @@ ENV WAYMARK_HOME=/data \
     GIT_CONFIG_VALUE_0=*
 VOLUME /data
 USER node
-ENTRYPOINT ["node", "/app/dist/cli.js"]
+ENTRYPOINT ["node", "/app/cli.mjs"]
 CMD ["--help"]

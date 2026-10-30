@@ -21,7 +21,7 @@ Create `.cursor/hooks.json` (project) or `~/.cursor/hooks.json` (user):
 }
 ```
 
-- `sessionStart` injects Waymark usage hints and recent notes as `additional_context`.
+- `sessionStart` injects Waymark usage hints, recent notes and open handoffs for this project (folder name of the first workspace root) as `additional_context`.
 - `preCompact` and `sessionEnd` save the transcript as a `session` doc tagged `harness:cursor`; saving again updates the same doc.
 
 ## Notes

@@ -4,3 +4,4 @@ dist
 docs/internal
 *.log
 .env*
+bundle

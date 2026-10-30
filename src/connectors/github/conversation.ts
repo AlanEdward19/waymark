@@ -4,7 +4,14 @@ import type { GhIssueComment, GhUser } from './api.js';
 export const isBot = (u: GhUser | null) =>
   u === null || u.type === 'Bot' || u.login.endsWith('[bot]');
 export const day = (iso: string) => iso.slice(0, 10);
-export const indent = (text: string, pad: string) => text.trim().replace(/\n/g, `\n${pad}`);
+// GitHub bodies often use CRLF; a lone CR is a line break in CommonMark
+export const lf = (text: string) => text.replace(/\r\n?/g, '\n');
+export const indent = (text: string, pad: string) => lf(text).trim().replace(/\n/g, `\n${pad}`);
+/** `: <body>` with continuation lines indented, or '' when the body is empty. */
+export const tail = (text: string | null, pad: string) => {
+  const body = indent(text ?? '', pad);
+  return body ? `: ${body}` : '';
+};
 
 /** Human (non-bot) issue comments, in API order. */
 export const humanIssueComments = (comments: GhIssueComment[]) =>
@@ -14,8 +21,7 @@ export const humanIssueComments = (comments: GhIssueComment[]) =>
 export function conversationSection(comments: GhIssueComment[]): string | null {
   if (comments.length === 0) return null;
   const lines = comments.map(
-    (c) =>
-      `- **@${(c.user as GhUser).login}** (${day(c.created_at)}): ${indent(c.body ?? '', '  ')}`,
+    (c) => `- **@${(c.user as GhUser).login}** (${day(c.created_at)})${tail(c.body, '  ')}`,
   );
   return `## Conversation\n\n${lines.join('\n')}`;
 }

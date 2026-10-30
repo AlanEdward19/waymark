@@ -74,7 +74,9 @@ export function gitConnector(
     }
 
     const remote = await run(['remote', 'get-url', 'origin'], repo).catch(() => undefined);
-    const args = ['log', '--no-color', '--no-merges', `--format=${LOG_FORMAT}`, '--name-only'];
+    // quotePath=false keeps non-ASCII file names readable instead of octal-escaped
+    const args = ['-c', 'core.quotePath=false', 'log', '--no-color', '--no-merges'];
+    args.push(`--format=${LOG_FORMAT}`, '--name-only');
     if (source.maxCommits !== undefined) args.push(`--max-count=${source.maxCommits}`);
     args.push(range);
     const docs = parseGitLog(source.id, await run(args, repo), remote);

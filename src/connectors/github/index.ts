@@ -10,7 +10,7 @@ import type {
   GithubApi,
 } from './api.js';
 import { createGithubApi } from './client.js';
-import { conversationSection, day, humanIssueComments, indent, isBot } from './conversation.js';
+import { conversationSection, day, humanIssueComments, isBot, lf, tail } from './conversation.js';
 import { syncIssues } from './issues.js';
 
 interface Cursor {
@@ -66,20 +66,34 @@ export function renderPull(
   if (humanReviews.length > 0) {
     const lines = humanReviews.map((r) => {
       const date = r.submitted_at ? ` (${day(r.submitted_at)})` : '';
-      const text = r.body?.trim().replace(/\n/g, ' ');
+      const text = lf(r.body ?? '')
+        .trim()
+        .replace(/\n/g, ' ');
       return `- **@${login(r.user)}** ${r.state}${date}${text ? `: ${text}` : ''}`;
     });
     sections.push(`## Reviews\n\n${lines.join('\n')}`);
   }
 
   if (humanComments.length > 0) {
-    const ids = new Set(humanComments.map((c) => c.id));
-    // replies whose root was a bot comment become roots themselves
-    const roots = humanComments.filter(
-      (c) => c.in_reply_to_id === undefined || !ids.has(c.in_reply_to_id),
-    );
+    const byId = new Map(humanComments.map((c) => [c.id, c]));
+    // walk up to the top-most human comment: replies to replies join the thread, and replies
+    // whose parent was a bot comment become roots themselves
+    const rootOf = (c: GhReviewComment): GhReviewComment => {
+      let cur = c;
+      const seen = new Set<number>();
+      while (
+        cur.in_reply_to_id !== undefined &&
+        byId.has(cur.in_reply_to_id) &&
+        !seen.has(cur.id)
+      ) {
+        seen.add(cur.id);
+        cur = byId.get(cur.in_reply_to_id) as GhReviewComment;
+      }
+      return cur;
+    };
+    const roots = humanComments.filter((c) => rootOf(c) === c);
     const entry = (c: GhReviewComment, lead: string, pad: string) =>
-      `${lead}- **@${login(c.user)}** (${day(c.created_at)}): ${indent(c.body, pad)}`;
+      `${lead}- **@${login(c.user)}** (${day(c.created_at)})${tail(c.body, pad)}`;
     const threads = roots.map((root) => {
       const n = root.line ?? root.original_line;
       const heading = `### \`${root.path}\`${n === null ? '' : ` line ${n}`}`;
@@ -87,7 +101,7 @@ export function renderPull(
       const lines = [
         entry(root, '', '  '),
         ...humanComments
-          .filter((c) => c.in_reply_to_id === root.id)
+          .filter((c) => c !== root && rootOf(c) === root)
           .map((c) => entry(c, '  ', '    ')),
       ];
       return `${heading}\n\n\`\`\`diff\n${hunk}\n\`\`\`\n\n${lines.join('\n')}`;
@@ -137,7 +151,7 @@ async function syncPulls(
 }
 
 function tokenFor(sourceId: string): string {
-  const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (!token) {
     throw new Error(
       `Source "${sourceId}": set GITHUB_TOKEN (or GH_TOKEN) to sync GitHub. Tip: GITHUB_TOKEN=$(gh auth token) waymark sync`,

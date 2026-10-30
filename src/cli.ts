@@ -2,10 +2,12 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HOOK_HANDLERS } from './agents/index.js';
-import { initHome } from './config.js';
+import { initHome, loadConfig } from './config.js';
+import { createEmbedder, embedConfigFrom } from './embed/client.js';
+import { embedPending } from './embed/index.js';
 import { openDb, reindex } from './index/db.js';
 import { formatHits } from './index/format.js';
-import { search } from './index/search.js';
+import { hybridSearch, queryEmbedderFor } from './index/hybrid.js';
 import { runStdio } from './mcp/server.js';
 import { resolvePaths } from './paths.js';
 import { DOC_KINDS, isDocKind } from './store/doc.js';
@@ -25,6 +27,7 @@ Commands:
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
   sync           Sync configured sources (--source <id> for one)
+  embed          Embed new or changed documents (needs "embeddings" in config)
   search <query...> [--kind <k>]... [--source <id>]... [--limit <n>] [--json]
                  Ranked search over indexed documents
   show <id>      Print a document as markdown
@@ -102,6 +105,20 @@ export async function main(argv: string[]): Promise<number> {
         }
         return 0;
       }
+      case 'embed': {
+        const paths = resolvePaths();
+        const cfg = embedConfigFrom(await loadConfig(paths));
+        if (!cfg)
+          throw new Error('embeddings are not configured (add "embeddings" to config.json)');
+        const db = openDb(paths.db);
+        try {
+          const r = await embedPending(db, createEmbedder(cfg), cfg.model);
+          process.stdout.write(`Embedded ${r.embedded} chunks (${r.removed} removed)\n`);
+        } finally {
+          db.close();
+        }
+        return 0;
+      }
       case 'sync': {
         if ((values.source?.length ?? 0) > 1) throw new Error('sync takes at most one --source');
         const results = await syncAll(resolvePaths(), { only: values.source?.[0] });
@@ -124,18 +141,17 @@ export async function main(argv: string[]): Promise<number> {
           }
         }
         const limit = values.limit === undefined ? undefined : Number(values.limit);
-        if (limit !== undefined && !Number.isFinite(limit)) {
+        if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1)) {
           throw new Error(`invalid limit "${values.limit}"`);
         }
         const paths = resolvePaths();
         const db = openDb(paths.db);
         try {
-          const hits = search(db, {
-            query,
-            kinds: kinds.filter(isDocKind),
-            sourceIds: values.source,
-            limit,
-          });
+          const hits = await hybridSearch(
+            db,
+            { query, kinds: kinds.filter(isDocKind), sourceIds: values.source, limit },
+            await queryEmbedderFor(paths),
+          );
           process.stdout.write(
             values.json ? `${JSON.stringify(hits, null, 2)}\n` : `${formatHits(hits)}\n`,
           );

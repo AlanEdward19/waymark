@@ -63,6 +63,7 @@ describe('handoffs', () => {
     }
   });
 
+  // sequential in practice (better-sqlite3 is sync); the interleaved race is in review-fixes.test.ts
   it('only one of two connections wins a claim', async () => {
     const a = openDb(dbPath);
     const b = openDb(dbPath);

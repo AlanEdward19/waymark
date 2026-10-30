@@ -20,12 +20,13 @@ export const RULES: readonly RedactRule[] = [
   { type: 'google-api-key', pattern: /\bAIza[0-9A-Za-z_-]{35}/g },
   { type: 'stripe-key', pattern: /\b[rs]k_live_[A-Za-z0-9]{20,}/g },
   { type: 'jwt', pattern: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
+  // bearer before connection-string: `Password=Bearer <token>` must redact the token, not "Bearer"
+  { type: 'bearer', pattern: /\b[Bb]earer\s+([A-Za-z0-9._~+/-]{20,}=*)/g, group: 1 },
   {
     type: 'connection-string',
     pattern: /\b(?:AccountKey|SharedAccessKey|Password|Pwd)=([^;\s"']+)/gi,
     group: 1,
   },
-  { type: 'bearer', pattern: /\b[Bb]earer\s+([A-Za-z0-9._~+/-]{20,}=*)/g, group: 1 },
   {
     type: 'assignment',
     pattern:

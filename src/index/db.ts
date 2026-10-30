@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import * as sqliteVec from 'sqlite-vec';
 import { docRelPath, type WaymarkDoc } from '../store/doc.js';
 import { listDocs } from '../store/markdown.js';
 
 export type Db = Database.Database;
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const SCHEMA_V1 = `
 CREATE TABLE docs (
@@ -39,6 +40,20 @@ CREATE TABLE source_state (
 );
 `;
 
+// v2: chunk metadata for the vector index; the vec0 table itself is created on first embed,
+// when the embedding dimension is known (see src/embed/index.ts)
+const SCHEMA_V2 = `
+CREATE TABLE chunks (
+  chunk_id INTEGER PRIMARY KEY,
+  doc_id   TEXT NOT NULL,
+  n        INTEGER NOT NULL,
+  start    INTEGER NOT NULL,
+  hash     TEXT NOT NULL,
+  UNIQUE (doc_id, n)
+);
+CREATE TABLE vec_meta (model TEXT NOT NULL, dim INTEGER NOT NULL);
+`;
+
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
@@ -46,13 +61,15 @@ export function openDb(dbPath: string): Db {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.pragma('busy_timeout = 5000');
+    sqliteVec.load(db);
     const version = db.pragma('user_version', { simple: true }) as number;
     if (version > SCHEMA_VERSION) {
       throw new Error('Database schema is newer than this Waymark version');
     }
-    if (version === 0) {
+    if (version < SCHEMA_VERSION) {
       db.transaction(() => {
-        db.exec(SCHEMA_V1);
+        if (version < 1) db.exec(SCHEMA_V1);
+        if (version < 2) db.exec(SCHEMA_V2);
         db.pragma(`user_version = ${SCHEMA_VERSION}`);
       })();
     }

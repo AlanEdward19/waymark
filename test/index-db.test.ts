@@ -40,9 +40,9 @@ const count = (db: ReturnType<typeof openDb>, table: string, id?: string) =>
   ).n;
 
 describe('openDb', () => {
-  it('creates v1 db in WAL mode and reopens', () => {
+  it('creates the current-schema db in WAL mode and reopens', () => {
     const db = openDb(dbPath);
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    expect(db.pragma('user_version', { simple: true })).toBe(2);
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal');
     db.close();
     openDb(dbPath).close();

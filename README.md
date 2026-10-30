@@ -6,7 +6,7 @@ Waymark answers "why is it built this way, who knows about it, and what did we a
 what lives in your code, issues, docs and conversations with what your agents learn while working.
 Agents (and humans) get one reconciled, source-linked answer instead of ten tabs of search results.
 
-**Status:** v0.1 MVP: git + GitHub (PRs, reviews, issues) ingest into a git-versioned markdown wiki, SQLite FTS5 search, MCP server and Claude Code hooks. Local and single-user; no auth yet.
+**Status:** v0.1 MVP plus agent integrations: git + GitHub (PRs, reviews, issues) ingest into a git-versioned markdown wiki, SQLite FTS5 search with optional semantic (embeddings) search, MCP server, session capture hooks for Claude Code, Cursor and Hermes Agent, and handoffs between agent sessions. Local and single-user; no auth yet.
 
 ## Quickstart
 
@@ -23,6 +23,7 @@ waymark search "why sqlite"
 
 ## Documentation
 
+- [docs/search.md](docs/search.md): how search ranks results and how to enable optional semantic search.
 - [docs/mcp.md](docs/mcp.md): MCP server (`waymark mcp`) tools and client setup.
 - [docs/claude-code.md](docs/claude-code.md): Claude Code integration via MCP and lifecycle hooks.
 - [docs/cursor.md](docs/cursor.md): Cursor integration via MCP and lifecycle hooks.
@@ -85,7 +86,12 @@ Open epics:
 }
 ```
 
-Tokens never go in the config; they come from environment variables.
+- `git` sources: `path` is absolute or relative to the folder of `config.json`; optional `maxCommits` limits each sync.
+- `github` sources: `repo` is `owner/name`; optional `include` is `["pulls", "issues"]` (default both).
+- Tokens never go in the config: GitHub reads `GITHUB_TOKEN`, then `GH_TOKEN`.
+- Optional `embeddings` (`url`, `model`) enables semantic search; see [docs/search.md](docs/search.md). Its API key comes from `WAYMARK_EMBED_API_KEY`.
+
+Other commands: `waymark embed` embeds new or changed documents, `waymark sync --source <id>` syncs one source, `waymark show <id>` prints a document, `waymark reindex` rebuilds the search index from the wiki.
 
 ## Contributing
 

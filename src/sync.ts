@@ -3,6 +3,8 @@ import { loadConfig, type SourceConfig } from './config.js';
 import { gitConnector } from './connectors/git.js';
 import { githubConnector } from './connectors/github/index.js';
 import type { Connector } from './connectors/types.js';
+import { createEmbedder, type Embedder, embedConfigFrom } from './embed/client.js';
+import { embedPending } from './embed/index.js';
 import { getState, openDb, setState, upsertDoc } from './index/db.js';
 import type { WaymarkPaths } from './paths.js';
 import { docRelPath } from './store/doc.js';
@@ -20,7 +22,7 @@ function buildConnector(source: SourceConfig, configDir: string): Connector {
 
 export async function syncAll(
   paths: WaymarkPaths,
-  opts: { only?: string; connectors?: Record<string, Connector> } = {},
+  opts: { only?: string; connectors?: Record<string, Connector>; embedder?: Embedder } = {},
 ): Promise<Array<{ sourceId: string; count: number; error?: string }>> {
   const config = await loadConfig(paths);
   let sources = config.sources;
@@ -41,8 +43,8 @@ export async function syncAll(
           cursor: getState(db, source.id),
           log,
           emit: async (doc) => {
-            await writeDoc(paths.wiki, doc);
-            upsertDoc(db, doc, docRelPath(doc.id));
+            const { doc: stored } = await writeDoc(paths.wiki, doc);
+            upsertDoc(db, stored, docRelPath(doc.id));
           },
         });
         if (cursor !== null) setState(db, source.id, cursor);
@@ -51,6 +53,16 @@ export async function syncAll(
         const error = err instanceof Error ? err.message : String(err);
         log(`error: ${error}`);
         results.push({ sourceId: source.id, count: 0, error });
+      }
+    }
+    const embedCfg = embedConfigFrom(config);
+    if (embedCfg) {
+      // optional upgrade: a provider outage must not fail the sync
+      try {
+        const r = await embedPending(db, opts.embedder ?? createEmbedder(embedCfg), embedCfg.model);
+        process.stderr.write(`embeddings: ${r.embedded} chunks embedded\n`);
+      } catch (err) {
+        process.stderr.write(`warn: embeddings: ${(err as Error).message}\n`);
       }
     }
   } finally {
