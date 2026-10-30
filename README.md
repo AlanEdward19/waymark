@@ -43,7 +43,7 @@ self-hostable project that covers both organizational knowledge and agent memory
 
 ## Contributing
 
-Early stage: open an issue to discuss ideas before sending a PR.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Early stage: open an issue to discuss ideas before sending a PR.
 
 ## License
 
