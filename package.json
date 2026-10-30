@@ -16,13 +16,15 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "check": "npm run lint && npm run build && npm test"
+    "check": "npm run lint && npm run build && npm test",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --target=node24 --outfile=bundle/cli.mjs --external:better-sqlite3 --external:sqlite-vec --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",
     "@modelcontextprotocol/client": "^2.4.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.19.2",
+    "esbuild": "0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
