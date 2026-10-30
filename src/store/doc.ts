@@ -1,4 +1,4 @@
-export const DOC_KINDS = ['commit', 'pull_request', 'issue', 'session', 'note'] as const;
+export const DOC_KINDS = ['commit', 'pull_request', 'issue', 'session', 'note', 'handoff'] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 
 export interface WaymarkDoc {
@@ -53,4 +53,16 @@ export function parseId(id: string): { sourceId: string; kind: DocKind; nativeId
 export function docRelPath(id: string): string {
   parseId(id);
   return `${id}.md`;
+}
+
+/** `agent/<kind>/<yyyyMMdd-HHmmss>-<slug of title>`; shared by save_note and handoffs. */
+export function noteStampId(kind: DocKind, title: string, now: Date): string {
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/, '');
+  return makeId('agent', kind, slug ? `${stamp}-${slug}` : stamp);
 }
