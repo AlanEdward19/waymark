@@ -41,6 +41,22 @@ self-hostable project that covers both organizational knowledge and agent memory
 3. MVP: ingest a git repo + PRs, markdown store, FTS search, MCP server.
 4. Agent hooks, handoffs, more sources, permissions, front-ends.
 
+## Configuration
+
+`waymark init` creates the data directory (`$WAYMARK_HOME`, default `~/.waymark`) with `config.json`, `wiki/` and `db/`. Example `config.json`:
+
+```json
+{
+  "version": 1,
+  "sources": [
+    { "id": "waymark-git", "type": "git", "path": "C:/code/waymark" },
+    { "id": "waymark-gh", "type": "github", "repo": "AlanEdward19/waymark" }
+  ]
+}
+```
+
+Tokens never go in the config; they come from environment variables.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Early stage: open an issue to discuss ideas before sending a PR.
