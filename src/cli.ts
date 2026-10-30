@@ -3,7 +3,11 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
+import { formatHits } from './index/format.js';
+import { search } from './index/search.js';
 import { resolvePaths } from './paths.js';
+import { DOC_KINDS, isDocKind } from './store/doc.js';
+import { readDoc, serializeDoc } from './store/markdown.js';
 import { VERSION } from './version.js';
 
 const USAGE = `Usage: waymark [options] <command>
@@ -15,6 +19,9 @@ Options:
 Commands:
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
+  search <query...> [--kind <k>]... [--source <id>]... [--limit <n>] [--json]
+                 Ranked search over indexed documents
+  show <id>      Print a document as markdown
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -24,6 +31,10 @@ export async function main(argv: string[]): Promise<number> {
       options: {
         version: { type: 'boolean', short: 'v' },
         help: { type: 'boolean', short: 'h' },
+        kind: { type: 'string', multiple: true },
+        source: { type: 'string', multiple: true },
+        limit: { type: 'string' },
+        json: { type: 'boolean' },
       },
       allowPositionals: true,
     });
@@ -59,6 +70,48 @@ export async function main(argv: string[]): Promise<number> {
         } finally {
           db.close();
         }
+        return 0;
+      }
+      case 'search': {
+        const query = positionals.slice(1).join(' ');
+        if (query.trim() === '') throw new Error('search needs a query');
+        const kinds = values.kind ?? [];
+        for (const k of kinds) {
+          if (!isDocKind(k)) {
+            throw new Error(`invalid kind "${k}" (valid: ${DOC_KINDS.join(', ')})`);
+          }
+        }
+        const limit = values.limit === undefined ? undefined : Number(values.limit);
+        if (limit !== undefined && !Number.isFinite(limit)) {
+          throw new Error(`invalid limit "${values.limit}"`);
+        }
+        const paths = resolvePaths();
+        const db = openDb(paths.db);
+        try {
+          const hits = search(db, {
+            query,
+            kinds: kinds.filter(isDocKind),
+            sourceIds: values.source,
+            limit,
+          });
+          process.stdout.write(
+            values.json
+              ? `${JSON.stringify(hits, null, 2)}
+`
+              : `${formatHits(hits)}
+`,
+          );
+        } finally {
+          db.close();
+        }
+        return 0;
+      }
+      case 'show': {
+        const id = positionals[1];
+        if (!id) throw new Error('show needs a document id');
+        const doc = await readDoc(resolvePaths().wiki, id);
+        if (!doc) throw new Error(`document not found: ${id}`);
+        process.stdout.write(serializeDoc(doc));
         return 0;
       }
       default:
