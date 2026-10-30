@@ -6,7 +6,7 @@ Waymark answers "why is it built this way, who knows about it, and what did we a
 what lives in your code, issues, docs and conversations with what your agents learn while working.
 Agents (and humans) get one reconciled, source-linked answer instead of ten tabs of search results.
 
-**Docs:** [Claude Code hooks and MCP](docs/claude-code.md)
+**Docs:** [Claude Code hooks and MCP](docs/claude-code.md) · [MCP server](docs/mcp.md)
 
 **Status:** early development. Project scaffold only (TypeScript on Node.js 24, see [ADR-0001](docs/adr/0001-stack.md)); the MVP is tracked in [#1](https://github.com/AlanEdward19/waymark/issues/1). See [Roadmap](#roadmap).
 
