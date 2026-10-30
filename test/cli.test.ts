@@ -52,4 +52,18 @@ Waymark already initialised at ${tmp}
       await fs.rm(tmp, { recursive: true, force: true });
     }
   });
+
+  it('reindex prints the document count', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'waymark-'));
+    vi.stubEnv('WAYMARK_HOME', tmp);
+    try {
+      const io = capture();
+      expect(await main(['init'])).toBe(0);
+      expect(await main(['reindex'])).toBe(0);
+      expect(io.out()).toContain('Indexed 0 documents\n');
+    } finally {
+      vi.unstubAllEnvs();
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
 });
