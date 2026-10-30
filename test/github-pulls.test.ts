@@ -58,6 +58,7 @@ function fakeApi(pages: GhPull[][], data: Data = {}) {
         yield pages[i] as GhPull[];
       }
     },
+    async *issuePages() {},
     reviews: async () => data.reviews ?? [],
     reviewComments: async () => data.comments ?? [],
     issueComments: async () => data.conv ?? [],
