@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { handleHook } from './agents/claude-code.js';
 import { initHome } from './config.js';
 import { openDb, reindex } from './index/db.js';
 import { resolvePaths } from './paths.js';
@@ -15,6 +16,7 @@ Options:
 Commands:
   init           Create the Waymark data directory and config
   reindex        Rebuild the search index from the wiki
+  hook <harness> Handle an agent hook event from stdin (claude-code)
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -58,6 +60,28 @@ export async function main(argv: string[]): Promise<number> {
           process.stdout.write(`Indexed ${count} documents\n`);
         } finally {
           db.close();
+        }
+        return 0;
+      }
+      case 'hook': {
+        // hooks must never break the user's session: always exit 0
+        try {
+          if (positionals[1] !== 'claude-code') {
+            process.stderr.write(`warn: waymark hook: unknown harness "${positionals[1] ?? ''}"
+`);
+            return 0;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+          const out = await handleHook(Buffer.concat(chunks).toString('utf8'), resolvePaths());
+          if (out !== '')
+            process.stdout.write(`${out}
+`);
+        } catch (err) {
+          process.stderr.write(
+            `warn: waymark hook: ${err instanceof Error ? err.message : String(err)}
+`,
+          );
         }
         return 0;
       }
