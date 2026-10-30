@@ -42,7 +42,8 @@ export function parseId(id: string): { sourceId: string; kind: DocKind; nativeId
     // keep ids inside the wiki dir
     sourceId === '.' ||
     sourceId === '..' ||
-    /\|:/.test(id)
+    id.includes('\\') ||
+    id.includes(':')
   ) {
     throw new Error(`Invalid document id: ${id}`);
   }

@@ -34,7 +34,15 @@ describe('ids', () => {
     expect(() => makeId('a', 'note', '')).toThrow();
   });
   it('rejects invalid ids', () => {
-    for (const id of ['a/b', 'a/unknown/c', 'a//c', '../issue/1', 'a/issue/b/c']) {
+    for (const id of [
+      'a\\b/issue/1',
+      'a:b/issue/1',
+      'a/b',
+      'a/unknown/c',
+      'a//c',
+      '../issue/1',
+      'a/issue/b/c',
+    ]) {
       expect(() => parseId(id)).toThrow(`Invalid document id: ${id}`);
     }
     expect(docRelPath('a/issue/1')).toBe('a/issue/1.md');
