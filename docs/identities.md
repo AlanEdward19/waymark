@@ -46,11 +46,44 @@ key. Installation tokens expire after 1 hour on their own; Waymark never stores 
 
 ## Azure DevOps
 
-See #62 (Entra provider) and #53, #67.
+Azure DevOps accepts Microsoft Entra tokens for application identities only (no PATs). Waymark
+uses an Entra **service principal**, or a **managed identity** when it runs on Azure.
+
+### Create the identity
+
+1. Entra admin center, App registrations, New registration. Name it `Waymark`. Single tenant.
+2. Prefer a **certificate**: Certificates & secrets, Certificates, upload the public `.cer`. Keep
+   the private key and the certificate together in one PEM file. A client secret works but is the
+   weakest option. On Azure, prefer a managed identity and create no secret at all.
+3. In Azure DevOps, Organization settings, Users, Add users. Add the service principal by the
+   **Object ID of its Enterprise application** (not the app registration's Object ID), with access
+   level **Basic** (Azure Repos needs it), and put it in a group with read-only permissions on the
+   projects Waymark should read.
+
+### Environment variables
+
+First match wins:
+
+| Credential       | Variables                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| Certificate      | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_CERTIFICATE_PATH` (PEM: key + cert) |
+| Client secret    | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`                             |
+| Managed identity | `WAYMARK_USE_MANAGED_IDENTITY=1`, optional `AZURE_CLIENT_ID` (user-assigned)            |
+
+Waymark requests the scope `https://app.vssps.visualstudio.com/.default`. Tokens are cached in
+memory and renewed 5 minutes before they expire.
+
+### Rotate
+
+Upload a new certificate (or create a new secret), update the PEM file or env var, then delete the
+old credential in the app registration.
 
 ## Microsoft Teams
 
-See #62 and #67.
+Teams is read through Microsoft Graph (scope `https://graph.microsoft.com/.default`) with the same
+Entra identity and the same environment variables as [Azure DevOps](#azure-devops). Reuse the
+`Waymark` app registration and grant the Graph **application** permissions with admin consent
+described in #67.
 
 ## Jira and Confluence
 
