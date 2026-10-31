@@ -3,6 +3,7 @@ import { loadConfig, type SourceConfig } from './config.js';
 import { discordConnector } from './connectors/discord.js';
 import { gitConnector } from './connectors/git.js';
 import { githubConnector } from './connectors/github/index.js';
+import { linearConnector } from './connectors/linear.js';
 import type { Connector } from './connectors/types.js';
 import { createEmbedder, type Embedder, embedConfigFrom } from './embed/client.js';
 import { embedPending } from './embed/index.js';
@@ -14,12 +15,14 @@ import { commitWiki } from './store/wikigit.js';
 
 function buildConnector(source: SourceConfig, configDir: string): Connector {
   switch (source.type) {
+    case 'discord':
+      return discordConnector(source);
     case 'git':
       return gitConnector(source, configDir);
     case 'github':
       return githubConnector(source);
-    case 'discord':
-      return discordConnector(source);
+    case 'linear':
+      return linearConnector(source);
   }
 }
 
