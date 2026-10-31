@@ -1,105 +1,142 @@
-<img src="docs/assets/logo.svg" alt="" width="96" align="right">
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/banner-dark.svg">
+    <img alt="Waymark" src="docs/media/banner-light.svg" width="100%">
+  </picture>
+</p>
 
-# Waymark
+<h3 align="center">Ask "why is it built this way?" and get the PR, the issue and the commit that answer it.</h3>
 
-> Open-source, self-hosted **context layer** for software teams and their AI coding agents.
+<p align="center">
+  An open-source, self-hosted context layer that turns your repos, trackers, docs and chats into one<br>
+  searchable, source-linked memory for your team and its AI coding agents.
+</p>
 
-Waymark answers "why is it built this way, who knows about it, and what did we already try?" by combining
-what lives in your code, issues, docs and conversations with what your agents learn while working.
-Agents (and humans) get one reconciled, source-linked answer instead of ten tabs of search results.
+<p align="center">
+  <a href="#quick-start"><b>Quick start</b></a> · <a href="docs/mcp.md">MCP server</a> · <a href="docs/claude-code.md">Claude Code</a> · <a href="docs/cursor.md">Cursor</a> · <a href="docs/hermes.md">Hermes</a> · <a href="docs/docker.md">Docker</a>
+</p>
 
-**Status:** v0.1 MVP plus agent integrations: git + GitHub (PRs, reviews, issues) ingest into a git-versioned markdown wiki, SQLite FTS5 search with optional semantic (embeddings) search, MCP server, session capture hooks for Claude Code, Cursor and Hermes Agent, and handoffs between agent sessions. Local and single-user; no auth yet.
+<p align="center">
+  <a href="https://github.com/AlanEdward19/waymark/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/AlanEdward19/waymark/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-0891B2?style=flat-square"></a>
+  <img alt="Node 24" src="https://img.shields.io/badge/node-24-0891B2?style=flat-square">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-server-0E7490?style=flat-square">
+  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-no%20LLM%20required-155E75?style=flat-square">
+</p>
 
-## Quickstart
+<p align="center">
+  <img src="docs/media/terminal-demo.svg" alt="Terminal: waymark sync ingests the repo and its GitHub PRs and issues, then waymark search for 'why do we use our own identity' returns the commit, the pull request and the ADR issue, each with its link" width="100%">
+</p>
+<p align="center"><sub>Real output of <code>waymark sync</code> and <code>waymark search</code> on this repository, trimmed for width.</sub></p>
 
-Node 24 required. The package is not on npm yet.
+## Why
+
+AI coding agents are only as good as the context they get. The reasons behind your code live in PR reviews, issue threads, design docs and chat, and most of it never reaches the agent, or the new teammate. Waymark collects it, keeps it as plain markdown you own, and serves it back with a link to where every fact came from.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/how-it-works-dark.svg">
+    <img alt="How Waymark works: your sources sync into a markdown wiki and a SQLite index; your agents query it over MCP and feed their sessions back through hooks" src="docs/media/how-it-works-light.svg" width="100%">
+  </picture>
+</p>
+
+## What you get
+
+- **One search across sources.** Commits and repo docs, GitHub PRs, reviews and issues, Linear, Notion and Discord today; Azure DevOps, Jira, Confluence, Slack and Teams are next ([#20](https://github.com/AlanEdward19/waymark/issues/20)).
+- **Answers with receipts.** Every hit links back to the commit, PR, issue or page it came from.
+- **Memory for your agents.** Hooks capture Claude Code, Cursor and Hermes sessions, and a new session starts with what the last one learned. Agents can leave a handoff that exactly one later session claims.
+- **Plain files you own.** The wiki is markdown in a git repository; the SQLite index (full-text plus optional vectors) is rebuildable at any time with `waymark reindex`.
+- **No LLM required.** Sync, search, capture and handoffs work offline with zero API keys. Semantic search is an opt-in upgrade with any OpenAI-compatible embeddings endpoint, including a local one ([docs/search.md](docs/search.md)).
+- **Its own identity.** Waymark reads each source as its own app or service account, never as you ([ADR-0002](docs/adr/0002-own-identity.md), [setup per source](docs/identities.md)).
+
+## Quick start
+
+Node 24 is required. The package is not on npm yet.
 
 ```bash
 git clone https://github.com/AlanEdward19/waymark && cd waymark
 npm ci && npm run build && npm link
-waymark init
-# edit ~/.waymark/config.json (see Configuration)
-GITHUB_TOKEN=$(gh auth token) waymark sync
-waymark search "why sqlite"
+waymark init                      # creates ~/.waymark (config, wiki, index)
 ```
 
-## Documentation
-
-- [docs/search.md](docs/search.md): how search ranks results and how to enable optional semantic search.
-- [docs/mcp.md](docs/mcp.md): MCP server (`waymark mcp`) tools and client setup.
-- [docs/claude-code.md](docs/claude-code.md): Claude Code integration via MCP and lifecycle hooks.
-- [docs/cursor.md](docs/cursor.md): Cursor integration via MCP and lifecycle hooks.
-- [docs/hermes.md](docs/hermes.md): Hermes Agent integration via MCP and shell hooks.
-- [docs/docker.md](docs/docker.md): run the CLI from the Docker image with a `/data` volume.
-- [docs/adr/0001-stack.md](docs/adr/0001-stack.md): ADR-0001, TypeScript on Node.js 24.
-- [docs/adr/0002-own-identity.md](docs/adr/0002-own-identity.md): ADR-0002, Waymark uses its own identity at every source.
-- [docs/identities.md](docs/identities.md): create the Waymark app identity per source (GitHub App first).
-
-## Why
-
-AI coding agents are only as good as the context they receive. Team knowledge is scattered across
-repos, PR reviews, issue trackers, chat and docs, and most of it is never written down. Existing solutions are
-either closed SaaS products or narrowly focused on single-session agent memory. Waymark aims to be an open,
-self-hostable project that covers both organizational knowledge and agent memory.
-
-## Goals
-
-- **Cross-source knowledge**: ingest code, git history, PRs and review comments, issues, docs and chat into one searchable knowledge graph.
-- **Organizational memory**: extract unwritten conventions and decisions (for example from PR review feedback) and identify who has expertise in each area.
-- **Agent memory**: capture agent sessions via hooks, consolidate them into readable pages, and hand work off between agents, tools and machines.
-- **Source-linked answers**: every answer cites where it came from; conflicting sources are reconciled by recency, authority and proximity.
-- **Permission-aware**: results are scoped at query time to what the asking user is allowed to see.
-- **Agent-native delivery**: MCP server first, then CLI, HTTP API, and chat/web front-ends.
-- **Bots where the team works**: Microsoft Teams, Slack, Discord, GitHub, Linear and more, via pluggable adapters.
-- **Bring your own model or agent**: API keys for hosted/local models, plus keyless integration with agent tools such as Claude Code, Cursor and Hermes Agent through MCP, hooks and plugins.
-- **Self-hosted, zero-LLM default**: capture, search and handoffs work without an API key; LLM and embeddings are optional upgrades.
-- **Transparent storage**: markdown (git-versioned) is the source of truth; indexes are rebuildable.
-
-## Non-goals
-
-- Not a hosted SaaS (at least initially).
-- Not a general-purpose chatbot or an agent framework; Waymark supplies context to agents, it does not replace them.
-- No training on user data, ever.
-
-## Roadmap
-
-1. ✅ Feature survey and issue breakdown.
-2. ✅ Architecture decisions: language/runtime, storage layout, plugin model for sources.
-3. ✅ MVP: ingest a git repo + PRs, markdown store, FTS search, MCP server.
-
-Open epics:
-
-- [#15](https://github.com/AlanEdward19/waymark/issues/15) Hybrid retrieval (embeddings, RRF, recency)
-- [#16](https://github.com/AlanEdward19/waymark/issues/16) Organisational memory (conventions, expertise, conflicts)
-- [#17](https://github.com/AlanEdward19/waymark/issues/17) Agent harness integrations and handoffs
-- [#18](https://github.com/AlanEdward19/waymark/issues/18) Permissions, auth and remote access
-- [#19](https://github.com/AlanEdward19/waymark/issues/19) Chat bots (Teams, Slack, Discord, GitHub, Linear)
-- [#20](https://github.com/AlanEdward19/waymark/issues/20) More source connectors
-
-## Configuration
-
-`waymark init` creates the data directory (`$WAYMARK_HOME`, default `~/.waymark`) with `config.json`, `wiki/` and `db/`. Example `config.json`:
+Add sources to `~/.waymark/config.json`:
 
 ```json
 {
   "version": 1,
   "sources": [
-    { "id": "waymark-git", "type": "git", "path": "C:/code/waymark" },
-    { "id": "waymark-gh", "type": "github", "repo": "AlanEdward19/waymark", "auth": "personal" }
+    { "id": "my-repo", "type": "git", "path": "C:/code/my-repo" },
+    { "id": "my-repo-gh", "type": "github", "repo": "me/my-repo", "auth": "personal" }
   ]
 }
 ```
 
-- `git` sources: `path` is absolute or relative to the folder of `config.json`; optional `maxCommits` limits each sync.
-- `github` sources: `repo` is `owner/name`; optional `include` is `["pulls", "issues"]` (default both).
-- Secrets never go in the config. Every source has `auth`: `app` (default, Waymark's own identity, see [docs/identities.md](docs/identities.md)) or `personal` (development only; GitHub then reads `GITHUB_TOKEN`, then `GH_TOKEN`).
-- Optional `embeddings` (`url`, `model`) enables semantic search; see [docs/search.md](docs/search.md). Its API key comes from `WAYMARK_EMBED_API_KEY`.
+Then sync and ask:
 
-Other commands: `waymark embed` embeds new or changed documents, `waymark sync --source <id>` syncs one source, `waymark show <id>` prints a document, `waymark reindex` rebuilds the search index from the wiki.
+```bash
+GITHUB_TOKEN=$(gh auth token) waymark sync
+waymark search "why sqlite"
+```
+
+`auth: "personal"` is the quickest way to try it. For real use, give Waymark its own identity ([docs/identities.md](docs/identities.md)).
+
+### Connect your agent
+
+```bash
+claude mcp add waymark -- waymark mcp
+```
+
+That gives Claude Code the `search`, `get_document`, `save_note` and handoff tools. Add the lifecycle hooks to capture sessions as well: [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [any MCP client](docs/mcp.md).
+
+## Sources
+
+| Source                                       | `type`    | What is ingested                                                          | Identity                       |
+| -------------------------------------------- | --------- | ------------------------------------------------------------------------- | ------------------------------ |
+| Git repository                               | `git`     | Commits and markdown docs (`include: ["commits", "docs"]`)                | Local checkout                 |
+| GitHub                                       | `github`  | PRs with reviews, issues with comments                                    | GitHub App                     |
+| Linear                                       | `linear`  | Issues and comments                                                       | OAuth app (client credentials) |
+| Notion                                       | `notion`  | Pages shared with the integration                                         | Internal integration           |
+| Discord                                      | `discord` | Messages of configured channels, one doc per channel per day              | Bot                            |
+| Azure DevOps, Jira, Confluence, Slack, Teams |           | In progress, see [#20](https://github.com/AlanEdward19/waymark/issues/20) |                                |
+
+Secrets never go in `config.json`; they come from environment variables listed per source in [docs/identities.md](docs/identities.md). `auth: "personal"` (development only) uses a personal token where the source supports it and logs a warning.
+
+<details>
+<summary>All commands</summary>
+
+| Command                        | What it does                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| `waymark init`                 | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/` |
+| `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                           |
+| `waymark search "<query>"`     | Ranked, source-linked results                                                       |
+| `waymark show <id>`            | Print one document                                                                  |
+| `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                    |
+| `waymark reindex`              | Rebuild the index from the markdown wiki                                            |
+| `waymark mcp`                  | MCP server over stdio                                                               |
+| `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                      |
+
+</details>
+
+## Roadmap
+
+- ✅ MVP: git and GitHub ingest, markdown wiki, full-text search, MCP server
+- ✅ Hybrid retrieval: embeddings, rank fusion, recency ([#15](https://github.com/AlanEdward19/waymark/issues/15))
+- ✅ Agent hooks and handoffs for Claude Code, Cursor and Hermes ([#17](https://github.com/AlanEdward19/waymark/issues/17))
+- 🚧 More connectors with Waymark's own identity ([#20](https://github.com/AlanEdward19/waymark/issues/20)), validated against real accounts ([#77](https://github.com/AlanEdward19/waymark/issues/77))
+- 🚧 Optional local web portal for plug-and-play setup ([#81](https://github.com/AlanEdward19/waymark/issues/81))
+- 🔜 Organisational memory: conventions, expertise, conflicts ([#16](https://github.com/AlanEdward19/waymark/issues/16))
+- 🔜 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18))
+- 🔜 Chat bots for Teams, Slack, Discord, GitHub and Linear ([#19](https://github.com/AlanEdward19/waymark/issues/19))
+
+Waymark is not a hosted SaaS, not a chatbot and not an agent framework: it supplies context to the agents you already use. It never trains on your data.
+
+## Documentation
+
+[Search and ranking](docs/search.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Early stage: open an issue to discuss ideas before sending a PR.
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), open an issue to discuss bigger ideas first, and report vulnerabilities privately ([SECURITY.md](SECURITY.md)). `npm run check` (lint, types, tests) must pass.
 
 ## License
 
