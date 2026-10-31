@@ -14,6 +14,8 @@ export const GitSourceSchema = z.object({
   auth: Auth,
   path: z.string().min(1), // absolute or relative to the config file dir
   maxCommits: z.number().int().positive().optional(),
+  include: z.array(z.enum(['commits', 'docs'])).default(['commits', 'docs']),
+  docs: z.array(z.string().min(1)).optional(), // glob pathspecs; default DOC_GLOBS
 });
 export const GithubSourceSchema = z.object({
   id: SourceId,
@@ -21,6 +23,12 @@ export const GithubSourceSchema = z.object({
   auth: Auth,
   repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/), // "owner/name"
   include: z.array(z.enum(['pulls', 'issues'])).default(['pulls', 'issues']),
+});
+export const LinearSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('linear'),
+  auth: Auth,
+  team: z.string().min(1).optional(), // team key, e.g. "ENG"
 });
 export const NotionSourceSchema = z.object({
   id: SourceId,
@@ -31,6 +39,7 @@ export const NotionSourceSchema = z.object({
 export const SourceSchema = z.discriminatedUnion('type', [
   GitSourceSchema,
   GithubSourceSchema,
+  LinearSourceSchema,
   NotionSourceSchema,
 ]);
 export const EmbeddingsSchema = z.object({
@@ -46,6 +55,7 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
+export type LinearSource = z.infer<typeof LinearSourceSchema>;
 export type GitSource = z.infer<typeof GitSourceSchema>;
 export type SourceConfig = z.infer<typeof SourceSchema>;
 
