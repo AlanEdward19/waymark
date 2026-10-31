@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { loadConfig, type SourceConfig } from './config.js';
+import { discordConnector } from './connectors/discord.js';
 import { gitConnector } from './connectors/git.js';
 import { githubConnector } from './connectors/github/index.js';
 import type { Connector } from './connectors/types.js';
@@ -8,7 +9,7 @@ import { embedPending } from './embed/index.js';
 import { deleteDoc, getState, openDb, setState, upsertDoc } from './index/db.js';
 import type { WaymarkPaths } from './paths.js';
 import { docRelPath } from './store/doc.js';
-import { removeDoc, writeDoc } from './store/markdown.js';
+import { readDoc, removeDoc, writeDoc } from './store/markdown.js';
 import { commitWiki } from './store/wikigit.js';
 
 function buildConnector(source: SourceConfig, configDir: string): Connector {
@@ -17,6 +18,8 @@ function buildConnector(source: SourceConfig, configDir: string): Connector {
       return gitConnector(source, configDir);
     case 'github':
       return githubConnector(source);
+    case 'discord':
+      return discordConnector(source);
   }
 }
 
@@ -46,6 +49,7 @@ export async function syncAll(
             await removeDoc(paths.wiki, id);
             deleteDoc(db, id);
           },
+          readDoc: (id) => readDoc(paths.wiki, id),
           listIds: (kind) =>
             (kind === undefined
               ? db.prepare('SELECT id FROM docs WHERE source_id = ?').all(source.id)

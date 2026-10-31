@@ -5,6 +5,7 @@ export interface SyncContext {
   cursor: string | null; // last saved cursor, null on first run
   emit: (doc: WaymarkDoc) => Promise<void>; // writes to wiki + index
   remove: (id: string) => Promise<void>; // deletes from wiki + index
+  readDoc: (id: string) => Promise<WaymarkDoc | null>; // stored doc, for merging
   listIds: (kind?: DocKind) => string[]; // ids this source has in the index
   log: (msg: string) => void; // stderr
 }

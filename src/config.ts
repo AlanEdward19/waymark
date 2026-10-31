@@ -22,7 +22,23 @@ export const GithubSourceSchema = z.object({
   repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/), // "owner/name"
   include: z.array(z.enum(['pulls', 'issues'])).default(['pulls', 'issues']),
 });
-export const SourceSchema = z.discriminatedUnion('type', [GitSourceSchema, GithubSourceSchema]);
+export const DiscordSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('discord'),
+  // user tokens are against Discord's terms: the Waymark bot is the only identity
+  auth: z
+    .literal('app', {
+      error: 'discord has no personal-token mode; remove "auth" (the Waymark bot is used)',
+    })
+    .default('app'),
+  channels: z.array(z.string().regex(/^\d{17,20}$/)).min(1),
+  backlogDays: z.number().int().min(1).max(365).default(30),
+});
+export const SourceSchema = z.discriminatedUnion('type', [
+  GitSourceSchema,
+  GithubSourceSchema,
+  DiscordSourceSchema,
+]);
 export const EmbeddingsSchema = z.object({
   url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
@@ -36,6 +52,7 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
+export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
 export type GitSource = z.infer<typeof GitSourceSchema>;
 export type SourceConfig = z.infer<typeof SourceSchema>;
 

@@ -74,4 +74,34 @@ See #66.
 
 ## Discord
 
-See #58.
+Waymark reads Discord as a **bot user of a Discord application named `Waymark`**. `"auth":
+"personal"` is rejected for Discord: user tokens are against Discord's terms.
+
+### Create the bot
+
+1. [discord.com/developers](https://discord.com/developers/applications), New Application, name it
+   `Waymark`. Bot tab: reset and copy the **token**.
+2. Bot tab, Privileged Gateway Intents: enable **Message Content**. Without it Discord returns
+   empty `content` and Waymark logs `discord: empty message content — is the Message Content intent enabled?`.
+3. Invite the bot (OAuth2 URL generator, scope `bot`) with only **View Channel** and **Read Message
+   History**. It reads only the channels it can see, and Waymark indexes only the channels listed in
+   the source config.
+4. Channel ids: Discord settings, Advanced, Developer Mode, then right-click a channel, Copy Channel ID.
+
+### Environment variables
+
+| Variable            | Meaning              |
+| ------------------- | -------------------- |
+| `DISCORD_BOT_TOKEN` | Bot token. Required. |
+
+```json
+{ "id": "team-chat", "type": "discord", "channels": ["123456789012345678"], "backlogDays": 30 }
+```
+
+One `chat` doc per channel per UTC day. First sync reads back `backlogDays` (default 30, max 365);
+later syncs read only messages after the saved cursor. Bots, system messages, DMs, threads,
+attachments and embeds are not indexed.
+
+### Rotate
+
+Reset the token in the Bot tab, update `DISCORD_BOT_TOKEN`. The old token stops working at once.
