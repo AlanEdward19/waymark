@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320">
+<title>Waymark</title>
+<rect width="1280" height="320" rx="24" fill="#0F172A"/>
+<g transform="translate(200,40) scale(0.5)">
+  <path d="M120 372 Q256 404 392 372" fill="none" stroke="#334155" stroke-width="10" stroke-linecap="round"/>
+  <ellipse cx="256" cy="336" rx="124" ry="40" fill="#E2E8F0"/>
+  <ellipse cx="244" cy="262" rx="92" ry="34" fill="#CBD5E1"/>
+  <ellipse cx="266" cy="198" rx="60" ry="28" fill="#E2E8F0"/>
+  <circle cx="262" cy="134" r="24" fill="#22D3EE"/>
+</g>
+<text x="480" y="168" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="88" font-weight="700" fill="#F1F5F9" letter-spacing="-2">Waymark</text>
+<text x="484" y="216" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" fill="#94A3B8">The context layer for your team and its AI agents</text>
+</svg>
