@@ -52,13 +52,42 @@ See #62 (Entra provider) and #53, #67.
 
 See #62 and #67.
 
-## Jira
+## Jira and Confluence
 
-See #63 (Atlassian provider) and #56.
+One Atlassian Cloud service account serves both products. Requires the centralized user management
+experience ([service accounts](https://support.atlassian.com/user-management/docs/understand-service-accounts/)).
 
-## Confluence
+### Create the service account
 
-See #63 and #64.
+1. admin.atlassian.com, Directory, Service accounts, create one named `Waymark`.
+2. Give it product access (Jira, Confluence) to the configured projects and spaces only.
+3. Create an **OAuth 2.0 credential** for it
+   ([how](https://support.atlassian.com/user-management/docs/create-oauth-2-0-credential-for-service-accounts/))
+   with read scopes only: `read:jira-work` (Jira); `read:page:confluence`, `read:space:confluence`
+   (Confluence).
+4. Note the client id and secret and set the variables below.
+
+### Environment variables
+
+| Variable                          | Meaning                                       |
+| --------------------------------- | --------------------------------------------- |
+| `WAYMARK_ATLASSIAN_CLIENT_ID`     | OAuth 2.0 credential client id. Required.     |
+| `WAYMARK_ATLASSIAN_CLIENT_SECRET` | OAuth 2.0 credential client secret. Required. |
+
+Waymark exchanges them at `https://auth.atlassian.com/oauth/token` (`client_credentials`, token valid
+60 minutes, refreshed automatically), resolves the site's cloud id with
+`GET https://<site>/_edge/tenant_info`, and calls
+`https://api.atlassian.com/ex/jira/<cloudId>` or `https://api.atlassian.com/ex/confluence/<cloudId>`.
+
+### Local testing with a personal token
+
+`"auth": "personal"` uses your email plus an API token with Basic auth against
+`https://<site>`. Development only; it logs a warning on every sync.
+
+### Rotate
+
+Create a new credential for the service account, update both variables, then delete the old
+credential.
 
 ## Linear
 
