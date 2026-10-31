@@ -121,6 +121,17 @@ export async function readDoc(wikiDir: string, id: string): Promise<WaymarkDoc |
   }
 }
 
+export async function removeDoc(wikiDir: string, id: string): Promise<boolean> {
+  const file = path.join(wikiDir, ...docRelPath(id).split('/'));
+  try {
+    await fs.unlink(file);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw err;
+  }
+}
+
 export async function* listDocs(
   wikiDir: string,
 ): AsyncGenerator<{ path: string; doc: WaymarkDoc }> {

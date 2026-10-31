@@ -1,6 +1,15 @@
 import { redact } from '../redact.js';
 
-export const DOC_KINDS = ['commit', 'pull_request', 'issue', 'session', 'note', 'handoff'] as const;
+export const DOC_KINDS = [
+  'commit',
+  'pull_request',
+  'issue',
+  'session',
+  'note',
+  'handoff',
+  'doc',
+  'chat',
+] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 
 export interface WaymarkDoc {
