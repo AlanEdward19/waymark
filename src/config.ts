@@ -22,7 +22,17 @@ export const GithubSourceSchema = z.object({
   repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/), // "owner/name"
   include: z.array(z.enum(['pulls', 'issues'])).default(['pulls', 'issues']),
 });
-export const SourceSchema = z.discriminatedUnion('type', [GitSourceSchema, GithubSourceSchema]);
+export const LinearSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('linear'),
+  auth: Auth,
+  team: z.string().min(1).optional(), // team key, e.g. "ENG"
+});
+export const SourceSchema = z.discriminatedUnion('type', [
+  GitSourceSchema,
+  GithubSourceSchema,
+  LinearSourceSchema,
+]);
 export const EmbeddingsSchema = z.object({
   url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
@@ -36,6 +46,7 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
+export type LinearSource = z.infer<typeof LinearSourceSchema>;
 export type GitSource = z.infer<typeof GitSourceSchema>;
 export type SourceConfig = z.infer<typeof SourceSchema>;
 
