@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Waymark</title>
+  <!-- a cairn: the stacked-stone trail marker that a "waymark" is -->
+  <rect width="512" height="512" rx="112" fill="#0F172A"/>
+  <path d="M120 372 Q256 404 392 372" fill="none" stroke="#334155" stroke-width="10" stroke-linecap="round"/>
+  <ellipse cx="256" cy="336" rx="124" ry="40" fill="#E2E8F0"/>
+  <ellipse cx="244" cy="262" rx="92" ry="34" fill="#CBD5E1"/>
+  <ellipse cx="266" cy="198" rx="60" ry="28" fill="#E2E8F0"/>
+  <circle cx="262" cy="134" r="24" fill="#22D3EE"/>
+</svg>
