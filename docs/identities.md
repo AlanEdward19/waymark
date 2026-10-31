@@ -20,12 +20,12 @@ a development fallback only and logs a warning on every sync.
 
 ### Environment variables
 
-| Variable | Meaning |
-|---|---|
-| `WAYMARK_GITHUB_APP_ID` | App ID (or client ID). Required. |
-| `WAYMARK_GITHUB_APP_PRIVATE_KEY` | PEM content (`\n` escapes allowed). Required unless the path is set. |
-| `WAYMARK_GITHUB_APP_PRIVATE_KEY_PATH` | Path to the `.pem` file. Alternative to the line above. |
-| `WAYMARK_GITHUB_INSTALLATION_ID` | Optional. Otherwise resolved per repo with `GET /repos/{owner}/{repo}/installation`. |
+| Variable                              | Meaning                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| `WAYMARK_GITHUB_APP_ID`               | App ID (or client ID). Required.                                                     |
+| `WAYMARK_GITHUB_APP_PRIVATE_KEY`      | PEM content (`\n` escapes allowed). Required unless the path is set.                 |
+| `WAYMARK_GITHUB_APP_PRIVATE_KEY_PATH` | Path to the `.pem` file. Alternative to the line above.                              |
+| `WAYMARK_GITHUB_INSTALLATION_ID`      | Optional. Otherwise resolved per repo with `GET /repos/{owner}/{repo}/installation`. |
 
 ```json
 { "id": "waymark-gh", "type": "github", "repo": "AlanEdward19/waymark" }
