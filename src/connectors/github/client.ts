@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest';
+import type { TokenProvider } from '../auth/index.js';
 import type { GithubApi } from './api.js';
 
 export function mapGithubError(err: unknown, owner: string, repo: string): unknown {
@@ -21,8 +22,11 @@ export function mapGithubError(err: unknown, owner: string, repo: string): unkno
   return err;
 }
 
-export function createGithubApi(token: string): GithubApi {
-  const octokit = new Octokit({ auth: token, userAgent: 'waymark' });
+export function createGithubApi(tokens: TokenProvider): GithubApi {
+  const octokit = new Octokit({ userAgent: 'waymark' });
+  octokit.hook.before('request', async (options) => {
+    options.headers.authorization = `token ${await tokens.getToken()}`;
+  });
   const wrap = async <T>(owner: string, repo: string, run: () => Promise<T>): Promise<T> => {
     try {
       return await run();

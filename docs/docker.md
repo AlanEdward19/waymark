@@ -28,7 +28,7 @@ docker run --rm -v waymark:/data -v /path/to/repo:/repos/myrepo:ro waymark sync
 
 The mount is owned by another uid, so the image sets `safe.directory=*` through `GIT_CONFIG_*` env vars to avoid git's "dubious ownership" error. Run `sync` on a schedule with cron or a Kubernetes CronJob against the same volume.
 
-GitHub sources need a token from the environment, e.g. `-e GITHUB_TOKEN`.
+GitHub sources need credentials from the environment: the `WAYMARK_GITHUB_APP_*` variables (see [identities.md](identities.md#github)), or `-e GITHUB_TOKEN` with `"auth": "personal"` for local testing.
 
 ## MCP server
 

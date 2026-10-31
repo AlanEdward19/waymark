@@ -255,7 +255,7 @@ describe('github pulls', () => {
       JSON.stringify({
         version: 1,
         sources: [
-          { id: 'gh', type: 'github', repo: 'o/r' },
+          { id: 'gh', type: 'github', repo: 'o/r', auth: 'personal' },
           { id: 'other', type: 'git', path: '.' },
         ],
       }),

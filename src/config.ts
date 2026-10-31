@@ -5,16 +5,20 @@ import type { WaymarkPaths } from './paths.js';
 import { ensureWikiRepo } from './store/wikigit.js';
 
 const SourceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
+// ADR-0002: 'app' = Waymark's own identity at the source, 'personal' = dev-only personal token
+const Auth = z.enum(['app', 'personal']).default('app');
 
 export const GitSourceSchema = z.object({
   id: SourceId,
   type: z.literal('git'),
+  auth: Auth,
   path: z.string().min(1), // absolute or relative to the config file dir
   maxCommits: z.number().int().positive().optional(),
 });
 export const GithubSourceSchema = z.object({
   id: SourceId,
   type: z.literal('github'),
+  auth: Auth,
   repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/), // "owner/name"
   include: z.array(z.enum(['pulls', 'issues'])).default(['pulls', 'issues']),
 });
@@ -31,6 +35,7 @@ export const ConfigSchema = z.object({
 });
 export type Config = z.infer<typeof ConfigSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
+export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
 export type GitSource = z.infer<typeof GitSourceSchema>;
 export type SourceConfig = z.infer<typeof SourceSchema>;
 
