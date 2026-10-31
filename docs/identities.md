@@ -164,7 +164,30 @@ Create a new client secret in the app settings, update the env var, then revoke 
 
 ## Notion
 
-See #57.
+The identity is an internal integration named `Waymark`. Notion has no personal fallback:
+`"auth": "personal"` is rejected (`notion sources only support auth: 'app'`).
+
+### Create the integration
+
+1. notion.so/profile/integrations, New integration, type **Internal**, name it `Waymark`.
+2. Capabilities: **Read content** only. Disable insert, update and user information.
+3. Copy the **Internal Integration Secret**.
+4. On each page or teamspace to index: `...` menu, Connections, add `Waymark`. Waymark sees nothing else.
+
+### Environment variables
+
+| Variable       | Meaning                                |
+| -------------- | -------------------------------------- |
+| `NOTION_TOKEN` | Internal integration secret. Required. |
+
+```json
+{ "id": "waymark-notion", "type": "notion" }
+```
+
+### Rotate
+
+Integration settings, Secrets, regenerate; update `NOTION_TOKEN`. Remove the connection from a page
+to stop indexing it (the next sync does not delete docs already synced unless the page is trashed).
 
 ## Slack
 

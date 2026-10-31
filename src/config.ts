@@ -30,10 +30,17 @@ export const LinearSourceSchema = z.object({
   auth: Auth,
   team: z.string().min(1).optional(), // team key, e.g. "ENG"
 });
+export const NotionSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('notion'),
+  // the internal integration "Waymark" is the identity; there is no personal fallback
+  auth: Auth.refine((a) => a === 'app', { message: "notion sources only support auth: 'app'" }),
+});
 export const SourceSchema = z.discriminatedUnion('type', [
   GitSourceSchema,
   GithubSourceSchema,
   LinearSourceSchema,
+  NotionSourceSchema,
 ]);
 export const EmbeddingsSchema = z.object({
   url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
