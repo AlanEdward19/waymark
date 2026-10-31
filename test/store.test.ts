@@ -28,10 +28,47 @@ const doc = (over: Partial<WaymarkDoc> = {}): WaymarkDoc => ({
 });
 
 describe('ids', () => {
-  it('sanitises native ids', () => {
-    expect(makeId('agent', 'session', 'abc:def/ghi')).toBe('agent/session/abc-def-ghi');
-    expect(makeId('a', 'note', 'x'.repeat(200))).toHaveLength('a/note/'.length + 120);
+  it('sanitises native ids and appends a hash of the original', () => {
+    expect(makeId('agent', 'session', 'abc:def/ghi')).toMatch(
+      /^agent\/session\/abc-def-ghi-[0-9a-f]{10}$/,
+    );
     expect(() => makeId('a', 'note', '')).toThrow();
+  });
+  it('keeps already-safe ids unchanged', () => {
+    const sha = 'a'.repeat(40);
+    for (const n of [
+      '123e4567-e89b-12d3-a456-426614174000',
+      '42',
+      sha,
+      '20261030-120000-my-note',
+    ]) {
+      expect(makeId('a', 'note', n)).toBe(`a/note/${n}`);
+    }
+  });
+  it('never collides distinct native ids', () => {
+    expect(makeId('a', 'note', '!!!')).not.toBe(makeId('a', 'note', '???'));
+    expect(makeId('a', 'note', 'docs/a-b.md')).not.toBe(makeId('a', 'note', 'docs-a/b.md'));
+    expect(makeId('a', 'note', '!!!')).toMatch(/^a\/note\/[0-9a-f]{10}$/);
+    const long1 = 'x'.repeat(300);
+    const long2 = `${'x'.repeat(120)}${'y'.repeat(180)}`;
+    const id1 = makeId('a', 'note', long1);
+    expect(id1).toBe(makeId('a', 'note', long1));
+    expect(id1.slice('a/note/'.length)).toHaveLength(120);
+    expect(id1).not.toBe(makeId('a', 'note', long2));
+  });
+  it('round-trips through parseId', () => {
+    for (const n of [
+      '!!!',
+      'docs/a-b.md',
+      'x'.repeat(300),
+      'abc:def/ghi',
+      '42',
+      'T:19@thread.tacv2',
+    ]) {
+      const id = makeId('a', 'note', n);
+      expect(parseId(id)).toMatchObject({ sourceId: 'a', kind: 'note' });
+      expect(makeId('a', 'note', parseId(id).nativeId)).toBe(id);
+    }
   });
   it('rejects invalid ids', () => {
     for (const id of [

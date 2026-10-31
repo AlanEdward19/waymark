@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { redact } from '../redact.js';
 
 export const DOC_KINDS = [
@@ -30,14 +31,18 @@ export function isDocKind(value: unknown): value is DocKind {
 }
 
 export function makeId(sourceId: string, kind: DocKind, nativeId: string): string {
-  const safe = nativeId
-    .replace(/[^A-Za-z0-9._-]/g, '-')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 120);
-  if (safe === '') {
-    throw new Error(`Cannot build document id from empty native id: "${nativeId}"`);
+  if (nativeId === '') {
+    throw new Error('Cannot build document id from empty native id');
   }
-  const id = `${sourceId}/${kind}/${safe}`;
+  const safe = nativeId.replace(/[^A-Za-z0-9._-]/g, '-').replace(/-{2,}/g, '-');
+  let leaf = safe;
+  if (safe !== nativeId || nativeId.length > 120) {
+    // sanitising or cutting is lossy: a hash of the original keeps distinct native ids distinct
+    const hash = createHash('sha256').update(nativeId).digest('hex').slice(0, 10);
+    const prefix = safe.slice(0, 109).replace(/-+$/, '');
+    leaf = prefix === '' ? hash : `${prefix}-${hash}`;
+  }
+  const id = `${sourceId}/${kind}/${leaf}`;
   parseId(id);
   return id;
 }
