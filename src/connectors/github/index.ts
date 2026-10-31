@@ -1,5 +1,7 @@
-import type { GithubSource } from '../../config.js';
+import type { GithubSourceInput } from '../../config.js';
 import { makeId, type WaymarkDoc } from '../../store/doc.js';
+import { type GithubAppDeps, githubAppTokenProvider } from '../auth/github-app.js';
+import type { TokenProvider } from '../auth/index.js';
 import type { Connector, SyncContext } from '../types.js';
 import type {
   GhIssueComment,
@@ -150,29 +152,46 @@ async function syncPulls(
   return { cursor: newest, count };
 }
 
-function tokenFor(sourceId: string): string {
+function personalToken(sourceId: string): TokenProvider {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (!token) {
     throw new Error(
       `Source "${sourceId}": set GITHUB_TOKEN (or GH_TOKEN) to sync GitHub. Tip: GITHUB_TOKEN=$(gh auth token) waymark sync`,
     );
   }
-  return token;
+  return { getToken: async () => token };
 }
 
-export function githubConnector(source: GithubSource, api?: GithubApi): Connector {
+export function githubConnector(
+  source: GithubSourceInput,
+  api?: GithubApi,
+  appDeps?: GithubAppDeps,
+): Connector {
+  const include = source.include ?? ['pulls', 'issues'];
   return async (ctx) => {
-    const client = api ?? createGithubApi(tokenFor(source.id));
+    if (source.auth === 'personal') {
+      ctx.log(
+        `warn: ${source.id} uses a personal token; production must use the Waymark app identity (docs/adr/0002-own-identity.md)`,
+      );
+    }
+    // an injected api (tests) brings its own credentials
+    const client =
+      api ??
+      createGithubApi(
+        source.auth === 'personal'
+          ? personalToken(source.id)
+          : githubAppTokenProvider(source.id, source.repo, appDeps),
+      );
     const [owner = '', repo = ''] = source.repo.split('/');
     const cursor = parseCursor(ctx.cursor);
     let count = 0;
 
-    if (source.include.includes('pulls')) {
+    if (include.includes('pulls')) {
       const r = await syncPulls(ctx, client, owner, repo, cursor.pulls);
       count += r.count;
       if (r.cursor !== undefined) cursor.pulls = r.cursor;
     }
-    if (source.include.includes('issues')) {
+    if (include.includes('issues')) {
       const r = await syncIssues(ctx, client, owner, repo, cursor.issues);
       count += r.count;
       if (r.cursor !== undefined) cursor.issues = r.cursor;

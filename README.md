@@ -30,6 +30,8 @@ waymark search "why sqlite"
 - [docs/hermes.md](docs/hermes.md): Hermes Agent integration via MCP and shell hooks.
 - [docs/docker.md](docs/docker.md): run the CLI from the Docker image with a `/data` volume.
 - [docs/adr/0001-stack.md](docs/adr/0001-stack.md): ADR-0001, TypeScript on Node.js 24.
+- [docs/adr/0002-own-identity.md](docs/adr/0002-own-identity.md): ADR-0002, Waymark uses its own identity at every source.
+- [docs/identities.md](docs/identities.md): create the Waymark app identity per source (GitHub App first).
 
 ## Why
 
@@ -81,14 +83,14 @@ Open epics:
   "version": 1,
   "sources": [
     { "id": "waymark-git", "type": "git", "path": "C:/code/waymark" },
-    { "id": "waymark-gh", "type": "github", "repo": "AlanEdward19/waymark" }
+    { "id": "waymark-gh", "type": "github", "repo": "AlanEdward19/waymark", "auth": "personal" }
   ]
 }
 ```
 
 - `git` sources: `path` is absolute or relative to the folder of `config.json`; optional `maxCommits` limits each sync.
 - `github` sources: `repo` is `owner/name`; optional `include` is `["pulls", "issues"]` (default both).
-- Tokens never go in the config: GitHub reads `GITHUB_TOKEN`, then `GH_TOKEN`.
+- Secrets never go in the config. Every source has `auth`: `app` (default, Waymark's own identity, see [docs/identities.md](docs/identities.md)) or `personal` (development only; GitHub then reads `GITHUB_TOKEN`, then `GH_TOKEN`).
 - Optional `embeddings` (`url`, `model`) enables semantic search; see [docs/search.md](docs/search.md). Its API key comes from `WAYMARK_EMBED_API_KEY`.
 
 Other commands: `waymark embed` embeds new or changed documents, `waymark sync --source <id>` syncs one source, `waymark show <id>` prints a document, `waymark reindex` rebuilds the search index from the wiki.

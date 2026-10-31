@@ -71,7 +71,7 @@ describe('syncAll', () => {
 
 describe('waymark sync', () => {
   it('prints error line and exits 1 on failure', async () => {
-    const paths = await home([{ id: 'gh', type: 'github', repo: 'o/r' }]);
+    const paths = await home([{ id: 'gh', type: 'github', repo: 'o/r', auth: 'personal' }]);
     vi.stubEnv('WAYMARK_HOME', paths.home);
     vi.stubEnv('GITHUB_TOKEN', '');
     vi.stubEnv('GH_TOKEN', '');

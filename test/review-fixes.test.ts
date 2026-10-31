@@ -322,11 +322,22 @@ describe('GitHub rendering and errors', () => {
     const paths = await initialisedHome();
     await fs.writeFile(
       paths.config,
-      JSON.stringify({ version: 1, sources: [{ id: 'gh', type: 'github', repo: 'o/r' }] }),
+      JSON.stringify({
+        version: 1,
+        sources: [{ id: 'gh', type: 'github', repo: 'o/r', auth: 'personal' }],
+      }),
     );
     // no api passed: the connector reads the token itself; include: [] makes no network calls
     const [res] = await syncAll(paths, {
-      connectors: { gh: githubConnector({ id: 'gh', type: 'github', repo: 'o/r', include: [] }) },
+      connectors: {
+        gh: githubConnector({
+          id: 'gh',
+          type: 'github',
+          repo: 'o/r',
+          include: [],
+          auth: 'personal',
+        }),
+      },
     });
     expect(res?.error).toBeUndefined();
   });
