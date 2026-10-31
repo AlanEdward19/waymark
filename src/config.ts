@@ -8,6 +8,18 @@ const SourceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
 // ADR-0002: 'app' = Waymark's own identity at the source, 'personal' = dev-only personal token
 const Auth = z.enum(['app', 'personal']).default('app');
 
+export const DiscordSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('discord'),
+  // user tokens are against Discord's terms: the Waymark bot is the only identity
+  auth: z
+    .literal('app', {
+      error: 'discord has no personal-token mode; remove "auth" (the Waymark bot is used)',
+    })
+    .default('app'),
+  channels: z.array(z.string().regex(/^\d{17,20}$/)).min(1),
+  backlogDays: z.number().int().min(1).max(365).default(30),
+});
 export const GitSourceSchema = z.object({
   id: SourceId,
   type: z.literal('git'),
@@ -37,6 +49,7 @@ export const NotionSourceSchema = z.object({
   auth: Auth.refine((a) => a === 'app', { message: "notion sources only support auth: 'app'" }),
 });
 export const SourceSchema = z.discriminatedUnion('type', [
+  DiscordSourceSchema,
   GitSourceSchema,
   GithubSourceSchema,
   LinearSourceSchema,
@@ -53,6 +66,7 @@ export const ConfigSchema = z.object({
   embeddings: EmbeddingsSchema.optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
+export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
 export type LinearSource = z.infer<typeof LinearSourceSchema>;
