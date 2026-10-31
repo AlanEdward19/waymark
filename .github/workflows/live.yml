@@ -1,0 +1,48 @@
+name: Live smoke tests
+
+# Manual only: read-only smoke tests against real accounts, with the secrets of the `live` environment.
+on:
+  workflow_dispatch:
+    inputs:
+      connectors:
+        description: 'Comma list (git,github,linear,notion,discord,entra,atlassian) or "all"'
+        default: all
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    environment: live
+    env:
+      LIVE_CONNECTORS: ${{ inputs.connectors }}
+      LIVE_GITHUB_REPO: ${{ vars.LIVE_GITHUB_REPO }}
+      LIVE_LINEAR_TEAM: ${{ vars.LIVE_LINEAR_TEAM }}
+      LIVE_DISCORD_CHANNEL: ${{ vars.LIVE_DISCORD_CHANNEL }}
+      LIVE_ADO_ORG: ${{ vars.LIVE_ADO_ORG }}
+      LIVE_ADO_PROJECT: ${{ vars.LIVE_ADO_PROJECT }}
+      LIVE_ATLASSIAN_SITE: ${{ vars.LIVE_ATLASSIAN_SITE }}
+      WAYMARK_GITHUB_APP_ID: ${{ secrets.WAYMARK_GITHUB_APP_ID }}
+      WAYMARK_GITHUB_APP_PRIVATE_KEY: ${{ secrets.WAYMARK_GITHUB_APP_PRIVATE_KEY }}
+      WAYMARK_GITHUB_INSTALLATION_ID: ${{ secrets.WAYMARK_GITHUB_INSTALLATION_ID }}
+      GITHUB_TOKEN: ${{ secrets.LIVE_GITHUB_PERSONAL_TOKEN }}
+      WAYMARK_LINEAR_CLIENT_ID: ${{ secrets.WAYMARK_LINEAR_CLIENT_ID }}
+      WAYMARK_LINEAR_CLIENT_SECRET: ${{ secrets.WAYMARK_LINEAR_CLIENT_SECRET }}
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      WAYMARK_ATLASSIAN_CLIENT_ID: ${{ secrets.WAYMARK_ATLASSIAN_CLIENT_ID }}
+      WAYMARK_ATLASSIAN_CLIENT_SECRET: ${{ secrets.WAYMARK_ATLASSIAN_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:live
