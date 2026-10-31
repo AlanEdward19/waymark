@@ -14,6 +14,8 @@ export const GitSourceSchema = z.object({
   auth: Auth,
   path: z.string().min(1), // absolute or relative to the config file dir
   maxCommits: z.number().int().positive().optional(),
+  include: z.array(z.enum(['commits', 'docs'])).default(['commits', 'docs']),
+  docs: z.array(z.string().min(1)).optional(), // glob pathspecs; default DOC_GLOBS
 });
 export const GithubSourceSchema = z.object({
   id: SourceId,
