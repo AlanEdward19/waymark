@@ -91,7 +91,43 @@ credential.
 
 ## Linear
 
-See #55.
+### Create the OAuth app
+
+1. Linear, Settings, API, OAuth applications, New. Name it `Waymark`.
+2. Enable **client credentials** for the app and note the **client ID** and **client secret**.
+3. Waymark requests the `read` scope only. Always keep it the same: requesting different scopes
+   revokes the app's existing tokens.
+
+Waymark exchanges the credentials with `POST https://api.linear.app/oauth/token`
+(`grant_type=client_credentials`, `scope=read`) for an app-actor token valid 30 days, cached and
+renewed automatically.
+
+The app token sees **public teams** only. To read a private team, grant the app access to it on the
+app's details page in Linear.
+
+| Variable                       | Meaning                        |
+| ------------------------------ | ------------------------------ |
+| `WAYMARK_LINEAR_CLIENT_ID`     | OAuth client ID. Required.     |
+| `WAYMARK_LINEAR_CLIENT_SECRET` | OAuth client secret. Required. |
+
+```json
+{ "id": "waymark-linear", "type": "linear", "team": "ENG" }
+```
+
+`team` (the team key) is optional; without it every visible team is read.
+
+### Local testing with a personal key
+
+```json
+{ "id": "waymark-linear", "type": "linear", "auth": "personal" }
+```
+
+This reads `LINEAR_API_KEY` (Linear, Settings, Security & access, Personal API keys), sent as
+`Authorization: <key>` without `Bearer`, and logs `warn: ... uses a personal token`.
+
+### Rotate
+
+Create a new client secret in the app settings, update the env var, then revoke the old one.
 
 ## Notion
 
