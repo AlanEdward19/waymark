@@ -14,3 +14,6 @@ Thumbs.db
 # Internal notes (local only)
 docs/internal/
 bundle/
+
+# Local secrets (GitHub App private keys etc.)
+.secrets/
