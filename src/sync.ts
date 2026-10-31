@@ -2,6 +2,7 @@ import path from 'node:path';
 import { loadConfig, type SourceConfig } from './config.js';
 import { gitConnector } from './connectors/git.js';
 import { githubConnector } from './connectors/github/index.js';
+import { notionConnector } from './connectors/notion.js';
 import type { Connector } from './connectors/types.js';
 import { createEmbedder, type Embedder, embedConfigFrom } from './embed/client.js';
 import { embedPending } from './embed/index.js';
@@ -17,6 +18,8 @@ function buildConnector(source: SourceConfig, configDir: string): Connector {
       return gitConnector(source, configDir);
     case 'github':
       return githubConnector(source);
+    case 'notion':
+      return notionConnector(source);
   }
 }
 

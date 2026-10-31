@@ -22,7 +22,17 @@ export const GithubSourceSchema = z.object({
   repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/), // "owner/name"
   include: z.array(z.enum(['pulls', 'issues'])).default(['pulls', 'issues']),
 });
-export const SourceSchema = z.discriminatedUnion('type', [GitSourceSchema, GithubSourceSchema]);
+export const NotionSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('notion'),
+  // the internal integration "Waymark" is the identity; there is no personal fallback
+  auth: Auth.refine((a) => a === 'app', { message: "notion sources only support auth: 'app'" }),
+});
+export const SourceSchema = z.discriminatedUnion('type', [
+  GitSourceSchema,
+  GithubSourceSchema,
+  NotionSourceSchema,
+]);
 export const EmbeddingsSchema = z.object({
   url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
