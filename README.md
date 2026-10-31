@@ -1,3 +1,5 @@
+<img src="docs/assets/logo.svg" alt="" width="96" align="right">
+
 # Waymark
 
 > Open-source, self-hosted **context layer** for software teams and their AI coding agents.
