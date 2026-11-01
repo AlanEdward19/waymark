@@ -46,7 +46,7 @@ AI coding agents are only as good as the context they get. The reasons behind yo
 - **Answers with receipts.** Every hit links back to the commit, PR, issue or page it came from.
 - **Memory for your agents.** Hooks capture Claude Code, Cursor and Hermes sessions, and a new session starts with what the last one learned. Agents can leave a handoff that exactly one later session claims.
 - **Plain files you own.** The wiki is markdown in a git repository; the SQLite index (full-text plus optional vectors) is rebuildable at any time with `waymark reindex`.
-- **No LLM required.** Sync, search, capture and handoffs work offline with zero API keys. Semantic search is an opt-in upgrade with any OpenAI-compatible embeddings endpoint, including a local one ([docs/search.md](docs/search.md)).
+- **No LLM required.** Sync, search, capture and handoffs work offline with zero API keys. Semantic search is an opt-in upgrade with any OpenAI-compatible embeddings endpoint, including a local one ([docs/search.md](docs/search.md)). An optional OpenAI-compatible `llm` for text generation stays optional too ([docs/memory.md](docs/memory.md)).
 - **Its own identity.** Waymark reads each source as its own app or service account, never as you ([ADR-0002](docs/adr/0002-own-identity.md), [setup per source](docs/identities.md)).
 
 ## Quick start
@@ -104,16 +104,18 @@ Secrets never go in `config.json`; they come from environment variables listed p
 <details>
 <summary>All commands</summary>
 
-| Command                        | What it does                                                                        |
-| ------------------------------ | ----------------------------------------------------------------------------------- |
-| `waymark init`                 | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/` |
-| `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                           |
-| `waymark search "<query>"`     | Ranked, source-linked results                                                       |
-| `waymark show <id>`            | Print one document                                                                  |
-| `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                    |
-| `waymark reindex`              | Rebuild the index from the markdown wiki                                            |
-| `waymark mcp`                  | MCP server over stdio                                                               |
-| `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                      |
+| Command                        | What it does                                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `waymark init`                 | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/`                               |
+| `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                                                         |
+| `waymark search "<query>"`     | Ranked, source-linked results                                                                                     |
+| `waymark show <id>`            | Print one document                                                                                                |
+| `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                                                  |
+| `waymark reindex`              | Rebuild the index from the markdown wiki                                                                          |
+| `waymark mcp`                  | MCP server over stdio                                                                                             |
+| `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
+| `waymark llm test`             | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
+| `waymark people [--json]`      | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
 
 </details>
 
@@ -132,7 +134,7 @@ Waymark is not a hosted SaaS, not a chatbot and not an agent framework: it suppl
 
 ## Documentation
 
-[Search and ranking](docs/search.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md)
+[Search and ranking](docs/search.md) · [Organisational memory](docs/memory.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md)
 
 ## Contributing
 

@@ -8,7 +8,9 @@ import { embedPending } from './embed/index.js';
 import { openDb, reindex } from './index/db.js';
 import { formatHits } from './index/format.js';
 import { hybridSearch, queryEmbedderFor } from './index/hybrid.js';
+import { createLlm, llmConfigFrom } from './llm/client.js';
 import { runStdio } from './mcp/server.js';
+import { createPeopleResolver, formatPeople, listPeople, printable } from './memory/people.js';
 import { resolvePaths } from './paths.js';
 import { DOC_KINDS, isDocKind } from './store/doc.js';
 import { readDoc, serializeDoc } from './store/markdown.js';
@@ -31,6 +33,9 @@ Commands:
   search <query...> [--kind <k>]... [--source <id>]... [--limit <n>] [--json]
                  Ranked search over indexed documents
   show <id>      Print a document as markdown
+  llm test       Check the optional LLM setup (needs "llm" in config)
+  people [--json]
+                 List person names seen in the index, grouped by canonical name
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -166,6 +171,33 @@ export async function main(argv: string[]): Promise<number> {
         const doc = await readDoc(resolvePaths().wiki, id);
         if (!doc) throw new Error(`document not found: ${id}`);
         process.stdout.write(serializeDoc(doc));
+        return 0;
+      }
+      case 'llm': {
+        if (positionals[1] !== 'test') throw new Error('usage: waymark llm test');
+        const cfg = llmConfigFrom(await loadConfig(resolvePaths()));
+        if (!cfg) throw new Error('llm is not configured (add "llm" to config.json)');
+        const started = Date.now();
+        const reply = await createLlm(cfg)([
+          { role: 'user', content: 'Reply with the single word OK.' },
+        ]);
+        process.stdout.write(
+          `LLM ok: ${cfg.model} at ${new URL(cfg.url).host} replied "${printable(reply.slice(0, 40))}" in ${Date.now() - started} ms\n`,
+        );
+        return 0;
+      }
+      case 'people': {
+        const paths = resolvePaths();
+        const resolve = createPeopleResolver((await loadConfig(paths)).people);
+        const db = openDb(paths.db);
+        try {
+          const people = listPeople(db, resolve);
+          process.stdout.write(
+            values.json ? `${JSON.stringify(people, null, 2)}\n` : formatPeople(people),
+          );
+        } finally {
+          db.close();
+        }
         return 0;
       }
       default:

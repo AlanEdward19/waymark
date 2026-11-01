@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as z from 'zod';
+import { createPeopleResolver, isEmailLike } from './memory/people.js';
 import type { WaymarkPaths } from './paths.js';
 import { ensureWikiRepo } from './store/wikigit.js';
 
@@ -55,15 +56,33 @@ export const SourceSchema = z.discriminatedUnion('type', [
   LinearSourceSchema,
   NotionSourceSchema,
 ]);
+// keys come from env vars: no credentials, query or fragment in endpoint URLs
+const EndpointUrl = z.url({ protocol: /^https?$/ }).refine((u) => {
+  const x = URL.parse(u); // null when z.url already failed: refine still runs
+  return !x || (!x.username && !x.password && !x.search && !x.hash);
+}, 'use a plain http(s) URL without credentials, query or fragment');
 export const EmbeddingsSchema = z.object({
-  url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
+  url: EndpointUrl, // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
   batchSize: z.number().int().min(1).max(256).default(32),
+});
+export const PersonSchema = z.object({
+  name: z.string().min(1).max(100),
+  aliases: z.array(z.string().min(1).max(100)).min(1).max(50),
+});
+export const LlmSchema = z.strictObject({
+  url: EndpointUrl, // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
+  model: z.string().min(1),
+  maxTokens: z.number().int().min(1).max(8192).default(800),
+  temperature: z.number().min(0).max(2).optional(), // omitted from requests unless set
+  timeoutMs: z.number().int().min(1000).max(300000).default(60000),
 });
 export const ConfigSchema = z.object({
   version: z.literal(1),
   sources: z.array(SourceSchema).default([]),
   embeddings: EmbeddingsSchema.optional(),
+  llm: LlmSchema.optional(),
+  people: z.array(PersonSchema).default([]),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
@@ -92,8 +111,8 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
     throw invalid((err as Error).message);
   }
 
-  const r = raw as { sources?: unknown; embeddings?: unknown } | null;
-  const secretHolders = [...(Array.isArray(r?.sources) ? r.sources : []), r?.embeddings];
+  const r = raw as { sources?: unknown; embeddings?: unknown; llm?: unknown } | null;
+  const secretHolders = [...(Array.isArray(r?.sources) ? r.sources : []), r?.embeddings, r?.llm];
   for (const s of secretHolders) {
     if (s !== null && typeof s === 'object' && ('token' in s || 'apiKey' in s)) {
       throw invalid('tokens must come from environment variables, not config');
@@ -107,6 +126,20 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
   for (const s of parsed.data.sources) {
     if (seen.has(s.id)) throw invalid(`duplicate source id "${s.id}"`);
     seen.add(s.id);
+  }
+
+  // display names and logins only: never e-mail addresses (epic #20)
+  for (const p of parsed.data.people ?? []) {
+    for (const v of [p.name, ...p.aliases]) {
+      if (isEmailLike(v)) {
+        throw invalid(`people: use display names or logins, not e-mail addresses ("${v}")`);
+      }
+    }
+  }
+  try {
+    createPeopleResolver(parsed.data.people);
+  } catch (err) {
+    throw invalid((err as Error).message);
   }
   return parsed.data;
 }
