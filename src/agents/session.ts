@@ -74,8 +74,8 @@ export function sessionDoc(meta: SessionMeta, turns: Turn[], now: Date): Waymark
 }
 
 export function startContext(db: Db, project?: string): string {
-  let out = `Waymark knowledge base is available through the MCP tools \`search\`, \`get_document\` and \`save_note\`.
-Search it before changing unfamiliar code or when asked why something is built a certain way. Save durable decisions and conventions with save_note. Before stopping unfinished work, leave a handoff with create_handoff.
+  let out = `Waymark knowledge base is available through the MCP tools \`search\`, \`get_document\`, \`save_note\`, \`create_handoff\`, \`list_handoffs\` and \`claim_handoff\`.
+Search it before changing unfamiliar code or when asked why something is built a certain way. Save durable decisions and conventions with save_note. Before stopping unfinished work, leave a handoff with create_handoff; to pick one up, list_handoffs then claim_handoff.
 `;
   const rows = db
     .prepare("SELECT id, title FROM docs WHERE kind = 'note' ORDER BY updated_at DESC LIMIT 5")

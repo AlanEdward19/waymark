@@ -4,7 +4,9 @@ import path from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { startContext } from '../src/agents/session.js';
 import { initHome } from '../src/config.js';
+import { openDb } from '../src/index/db.js';
 import { resolvePaths } from '../src/paths.js';
 
 let tmp: string;
@@ -43,6 +45,17 @@ describe('waymark mcp', () => {
       'save_note',
       'search',
     ]);
+  });
+
+  it('start-up context names every tool the server registers', async () => {
+    const { tools } = await client.listTools();
+    const db = openDb(resolvePaths({ WAYMARK_HOME: tmp }).db);
+    try {
+      const out = startContext(db);
+      for (const t of tools) expect(out).toContain(`\`${t.name}\``);
+    } finally {
+      db.close();
+    }
   });
 
   it('create, list and claim a handoff once', async () => {
