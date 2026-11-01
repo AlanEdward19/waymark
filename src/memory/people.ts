@@ -5,15 +5,14 @@ export type PeopleConfig = NonNullable<Config['people']>;
 export type Resolver = (raw: string) => string;
 
 /** Lookup key: trimmed, one leading `@` stripped, lower-cased. */
-export function personKey(raw: string, lower = true): string {
+export function personKey(raw: string): string {
   const t = raw.trim();
-  const k = (t.startsWith('@') ? t.slice(1) : t).trim();
-  return lower ? k.toLowerCase() : k;
+  return (t.startsWith('@') ? t.slice(1) : t).trim().toLowerCase();
 }
 
 /** E-mail shape (after trim and one leading `@`): `@` followed later by `.`. Never stored or shown. */
 export function isEmailLike(raw: string): boolean {
-  return /@.*\./.test(personKey(raw, false));
+  return /@.*\./.test(personKey(raw));
 }
 
 function stripAt(raw: string): string {

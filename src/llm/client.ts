@@ -86,14 +86,10 @@ export function createLlm(cfg: LlmConfig, fetchImpl: typeof fetch = fetch): Llm 
       res = await fetchWithRetry(
         endpoint,
         { method: 'POST', headers, body, redirect: 'error' },
-        {
-          fetchImpl,
-          timeoutMs: cfg.timeoutMs,
-          giveUp: (r) => new Error(`LLM request failed: ${r.status} ${r.statusText} from ${host}`),
-        },
+        // Retry-After over the cap returns the 429/503 itself: reported by the !res.ok check below
+        { fetchImpl, timeoutMs: cfg.timeoutMs },
       );
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith('LLM request failed')) throw err;
       if (err instanceof Error && err.name === 'TimeoutError') {
         throw new Error(`LLM request timed out after ${cfg.timeoutMs} ms`);
       }
