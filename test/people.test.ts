@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { main } from '../src/cli.js';
-import { createPeopleResolver } from '../src/memory/people.js';
+import { createPeopleResolver, formatPeople } from '../src/memory/people.js';
 import { parseId } from '../src/store/doc.js';
 import { writeDoc } from '../src/store/markdown.js';
 
@@ -40,6 +40,15 @@ describe('createPeopleResolver', () => {
         { name: 'B', aliases: ['X'] },
       ]),
     ).toThrow('people: alias "X" is listed under both "A" and "B"');
+  });
+});
+
+describe('formatPeople', () => {
+  it('strips control characters from synced names', () => {
+    const out = formatPeople([
+      { name: 'ev\u001b[2Jil', total: 1, aliases: [{ alias: 'x\u0007y', bySource: { s: 1 } }] },
+    ]);
+    expect(out).toBe('ev[2Jil  (1 docs)\n  aliases seen: xy (s 1)\n');
   });
 });
 

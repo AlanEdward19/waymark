@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { htmlToMarkdown } from '../src/connectors/html.js';
-import { envToken, fetchJson } from '../src/connectors/http.js';
+import { envToken, fetchJson, retryAfterSeconds } from '../src/connectors/http.js';
 import { openDb } from '../src/index/db.js';
 import { search } from '../src/index/search.js';
 import { resolvePaths } from '../src/paths.js';
@@ -159,5 +159,17 @@ describe('htmlToMarkdown', () => {
   ];
   it.each(cases)('%s', (_n, input, expected) => {
     expect(htmlToMarkdown(input)).toBe(expected);
+  });
+});
+
+describe('retryAfterSeconds', () => {
+  it('parses seconds and HTTP dates, defaulting to 5', () => {
+    expect(retryAfterSeconds(null)).toBe(5);
+    expect(retryAfterSeconds('')).toBe(5);
+    expect(retryAfterSeconds('3')).toBe(3);
+    expect(retryAfterSeconds('-1')).toBe(0);
+    const at = new Date(Date.now() + 10_000).toUTCString();
+    expect(retryAfterSeconds(at)).toBeGreaterThanOrEqual(9);
+    expect(retryAfterSeconds(at)).toBeLessThanOrEqual(10);
   });
 });

@@ -1,11 +1,13 @@
-import type { Config } from '../config.js';
 import type { Db } from '../index/db.js';
 
-export type PeopleConfig = NonNullable<Config['people']>;
-export type Resolver = (raw: string) => string;
+type PeopleConfig = { name: string; aliases: string[] }[];
+export type PeopleResolver = (raw: string) => string;
+
+/** Synced names and model replies reach the terminal: drop control characters (ANSI escapes). */
+export const printable = (s: string) => s.replace(/\p{Cc}/gu, '');
 
 /** Lookup key: trimmed, one leading `@` stripped, lower-cased. */
-export function personKey(raw: string): string {
+function personKey(raw: string): string {
   const t = raw.trim();
   return (t.startsWith('@') ? t.slice(1) : t).trim().toLowerCase();
 }
@@ -20,7 +22,7 @@ function stripAt(raw: string): string {
 }
 
 /** Canonical-name lookup built from the `people` config. Unmapped names resolve to themselves. */
-export function createPeopleResolver(people: PeopleConfig = []): Resolver {
+export function createPeopleResolver(people: PeopleConfig = []): PeopleResolver {
   const byKey = new Map<string, string>();
   for (const p of people) {
     for (const alias of [p.name, ...p.aliases]) {
@@ -48,7 +50,7 @@ export interface PersonSummary {
 const isBot = (name: string) => name.toLowerCase().endsWith('[bot]');
 
 /** Every person in `authors` of indexed docs, grouped by canonical name; bots last. */
-export function listPeople(db: Db, resolve: Resolver): PersonSummary[] {
+export function listPeople(db: Db, resolve: PeopleResolver): PersonSummary[] {
   const rows = db.prepare('SELECT source_id, authors FROM docs').all() as Array<{
     source_id: string;
     authors: string;
@@ -103,7 +105,7 @@ export function formatPeople(people: PersonSummary[]): string {
             .join(', ')})`,
       )
       .join(', ');
-    return `${p.name}  (${p.total} docs)\n  aliases seen: ${seen}\n`;
+    return `${printable(p.name)}  (${p.total} docs)\n  aliases seen: ${printable(seen)}\n`;
   };
   const humans = people.filter((p) => !isBot(p.name));
   const bots = people.filter((p) => isBot(p.name));

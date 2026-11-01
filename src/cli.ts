@@ -10,7 +10,7 @@ import { formatHits } from './index/format.js';
 import { hybridSearch, queryEmbedderFor } from './index/hybrid.js';
 import { createLlm, llmConfigFrom } from './llm/client.js';
 import { runStdio } from './mcp/server.js';
-import { createPeopleResolver, formatPeople, listPeople } from './memory/people.js';
+import { createPeopleResolver, formatPeople, listPeople, printable } from './memory/people.js';
 import { resolvePaths } from './paths.js';
 import { DOC_KINDS, isDocKind } from './store/doc.js';
 import { readDoc, serializeDoc } from './store/markdown.js';
@@ -182,7 +182,7 @@ export async function main(argv: string[]): Promise<number> {
           { role: 'user', content: 'Reply with the single word OK.' },
         ]);
         process.stdout.write(
-          `LLM ok: ${cfg.model} at ${new URL(cfg.url).host} replied "${reply.slice(0, 40)}" in ${Date.now() - started} ms\n`,
+          `LLM ok: ${cfg.model} at ${new URL(cfg.url).host} replied "${printable(reply.slice(0, 40))}" in ${Date.now() - started} ms\n`,
         );
         return 0;
       }

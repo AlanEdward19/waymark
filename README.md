@@ -110,12 +110,12 @@ Secrets never go in `config.json`; they come from environment variables listed p
 | `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                                                         |
 | `waymark search "<query>"`     | Ranked, source-linked results                                                                                     |
 | `waymark show <id>`            | Print one document                                                                                                |
-| `waymark llm test`             | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
-| `waymark people [--json]`      | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
 | `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                                                  |
 | `waymark reindex`              | Rebuild the index from the markdown wiki                                                                          |
 | `waymark mcp`                  | MCP server over stdio                                                                                             |
 | `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
+| `waymark llm test`             | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
+| `waymark people [--json]`      | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
 
 </details>
 

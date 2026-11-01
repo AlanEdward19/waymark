@@ -56,8 +56,13 @@ export const SourceSchema = z.discriminatedUnion('type', [
   LinearSourceSchema,
   NotionSourceSchema,
 ]);
+// keys come from env vars: no credentials, query or fragment in endpoint URLs
+const EndpointUrl = z.url({ protocol: /^https?$/ }).refine((u) => {
+  const x = URL.parse(u); // null when z.url already failed: refine still runs
+  return !x || (!x.username && !x.password && !x.search && !x.hash);
+}, 'use a plain http(s) URL without credentials, query or fragment');
 export const EmbeddingsSchema = z.object({
-  url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
+  url: EndpointUrl, // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
   batchSize: z.number().int().min(1).max(256).default(32),
 });
@@ -66,7 +71,7 @@ export const PersonSchema = z.object({
   aliases: z.array(z.string().min(1).max(100)).min(1).max(50),
 });
 export const LlmSchema = z.strictObject({
-  url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
+  url: EndpointUrl, // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
   maxTokens: z.number().int().min(1).max(8192).default(800),
   temperature: z.number().min(0).max(2).optional(), // omitted from requests unless set

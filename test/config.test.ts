@@ -159,6 +159,13 @@ describe('loadConfig', () => {
       ['llm timeoutMs 300001', { llm: { ...llm, timeoutMs: 300001 } }],
       ['llm url not a url', { llm: { ...llm, url: 'not a url' } }],
       ['llm unknown key', { llm: { ...llm, api_key: 'k' } }],
+      ['llm url ftp scheme', { llm: { ...llm, url: 'ftp://llm.test/v1' } }],
+      ['llm url with credentials', { llm: { ...llm, url: 'https://u:sk-x@llm.test/v1' } }],
+      ['llm url with query', { llm: { ...llm, url: 'https://llm.test/v1?api-key=x' } }],
+      [
+        'embeddings url with credentials',
+        { embeddings: { url: 'https://u:p@e.test/v1', model: 'e' } },
+      ],
     ];
     it.each(bad)('rejects %s', async (_name, extra) => {
       await write({ version: 1, sources: [], ...(extra as object) });

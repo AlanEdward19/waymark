@@ -257,6 +257,17 @@ describe('waymark llm test', () => {
     );
   });
 
+  it('strips control characters from the reply', async () => {
+    await fs.writeFile(
+      path.join(tmp, 'config.json'),
+      JSON.stringify({ version: 1, sources: [], llm: { url: 'http://llm.test/v1', model: 'm1' } }),
+    );
+    vi.stubGlobal('fetch', fake(reply('\u001b[31mOK\u0007')).impl);
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    expect(await main(['llm', 'test'])).toBe(0);
+    expect(out.mock.calls.map((c) => String(c[0])).join('')).toContain('replied "[31mOK" in');
+  });
+
   it('prints the usage error without a subcommand', async () => {
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     expect(await main(['llm'])).toBe(1);
