@@ -26,7 +26,7 @@ bob  (3 docs)
   aliases seen: bob (waymark-gh 3)
 ```
 
-`waymark people --json` prints `[{ name, total, aliases: [{ alias, bySource: { <sourceId>: count } }] }]`. Names ending in `[bot]` are listed last under a `bots` heading. They are excluded from expertise later.
+`waymark people --json` prints `[{ name, total, aliases: [{ alias, bySource: { <sourceId>: count } }] }]`. Names ending in `[bot]` are listed last under a `bots` heading. Excluding bots from expertise and convention features is planned future work; today the command only lists them apart. Authors shaped like an e-mail address are never listed.
 
 ## LLM (optional)
 
@@ -47,7 +47,8 @@ OpenAI:
 - `url` and `model` are required. `maxTokens` (1-8192, default 800) is sent as `max_tokens`, the one parameter every compatible server documents. `timeoutMs` (1000-300000, default 60000).
 - `temperature` (0-2) is optional and has no default: it is left out of requests unless you set it, which is the portable choice across providers.
 - The API key comes only from the `WAYMARK_LLM_API_KEY` environment variable (sent as `Authorization: Bearer <key>`). `apiKey` or `token` inside `llm` fails the config load.
+- When `WAYMARK_LLM_API_KEY` is set, `url` must be `https:`; plain `http:` is allowed only for `localhost`, `127.0.0.1` and `[::1]`, so the key is never sent in cleartext. Unknown keys inside `llm` fail the config load. Responses over 1 MB and redirects are rejected.
 - Requests retry on 429 and 503 (honouring `Retry-After`). Errors never include the key, the request or the response body.
 - Check the setup with `waymark llm test`: it prints `LLM ok: <model> at <host> replied "..." in <ms> ms`.
 
-**Privacy:** text sent to the endpoint is document text (already secret-redacted). Use a local model to keep everything on your machine.
+**Text sent to the endpoint is document text (already secret-redacted); use a local model to keep everything on your machine.**

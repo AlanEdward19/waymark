@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as z from 'zod';
-import { createPeopleResolver } from './memory/people.js';
+import { createPeopleResolver, isEmailLike } from './memory/people.js';
 import type { WaymarkPaths } from './paths.js';
 import { ensureWikiRepo } from './store/wikigit.js';
 
@@ -65,7 +65,7 @@ export const PersonSchema = z.object({
   name: z.string().min(1).max(100),
   aliases: z.array(z.string().min(1).max(100)).min(1).max(50),
 });
-export const LlmSchema = z.object({
+export const LlmSchema = z.strictObject({
   url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
   model: z.string().min(1),
   maxTokens: z.number().int().min(1).max(8192).default(800),
@@ -77,7 +77,7 @@ export const ConfigSchema = z.object({
   sources: z.array(SourceSchema).default([]),
   embeddings: EmbeddingsSchema.optional(),
   llm: LlmSchema.optional(),
-  people: z.array(PersonSchema).optional(), // absent = no mapping
+  people: z.array(PersonSchema).default([]),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
@@ -126,7 +126,7 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
   // display names and logins only: never e-mail addresses (epic #20)
   for (const p of parsed.data.people ?? []) {
     for (const v of [p.name, ...p.aliases]) {
-      if (/@.*\./.test(v.trim().replace(/^@/, ''))) {
+      if (isEmailLike(v)) {
         throw invalid(`people: use display names or logins, not e-mail addresses ("${v}")`);
       }
     }

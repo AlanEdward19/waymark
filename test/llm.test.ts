@@ -49,7 +49,11 @@ describe('createLlm', () => {
   });
 
   it('sends the Bearer header only when the env var is set', async () => {
-    const config = { version: 1 as const, sources: [], llm: { ...cfg, url: 'http://llm.test/v1' } };
+    const config = {
+      version: 1 as const,
+      sources: [],
+      llm: { ...cfg, url: 'https://llm.test/v1' },
+    };
     expect(llmConfigFrom(config, {})?.apiKey).toBeUndefined();
     const withKey = llmConfigFrom(config, { WAYMARK_LLM_API_KEY: 'sk-secret' });
     const f = fake();
@@ -93,7 +97,7 @@ describe('createLlm', () => {
 
   it('throws the exact errors and never leaks the key or bodies', async () => {
     const key = 'sk-secret';
-    const keyed = { ...cfg, apiKey: key };
+    const keyed = { ...cfg, url: 'https://llm.test/v1', apiKey: key };
     const errors: string[] = [];
     const run = async (...r: Array<Response | Error>) => {
       try {
@@ -115,6 +119,84 @@ describe('createLlm', () => {
       'LLM request failed: network error from llm.test',
     ]);
     expect(errors.join()).not.toContain(key);
+  });
+});
+
+describe('createLlm hardening', () => {
+  const ok = () => reply('ok');
+  const always429 = (ra: string) => {
+    const f = fake();
+    f.impl = vi.fn(async () => {
+      f.calls.push({ url: '', init: {}, body: {} });
+      return new Response('', {
+        status: 429,
+        statusText: 'Too Many',
+        headers: { 'retry-after': ra },
+      });
+    }) as unknown as typeof fetch;
+    return f;
+  };
+
+  it('gives up after 4 calls of 429 with retry-after 0', async () => {
+    const f = always429('0');
+    await expect(createLlm(cfg, f.impl)(msgs)).rejects.toThrow(
+      'LLM request failed: 429 Too Many from llm.test',
+    );
+    expect(f.calls).toHaveLength(4);
+  });
+
+  it('does not wait when retry-after is over the cap', async () => {
+    const f = always429('120');
+    await expect(createLlm(cfg, f.impl)(msgs)).rejects.toThrow(
+      'LLM request failed: 429 Too Many from llm.test',
+    );
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it('refuses a key over remote http, allows localhost http and keyless remote http', () => {
+    const msg =
+      'LLM url must be https when WAYMARK_LLM_API_KEY is set (http is allowed only for localhost)';
+    const key = { apiKey: 'k' };
+    expect(() => createLlm({ ...cfg, ...key, url: 'http://remote.test/v1' })).toThrow(msg);
+    expect(() => createLlm({ ...cfg, ...key, url: 'http://localhost:11434/v1' })).not.toThrow();
+    expect(() => createLlm({ ...cfg, ...key, url: 'http://127.0.0.1:1/v1' })).not.toThrow();
+    expect(() => createLlm({ ...cfg, ...key, url: 'http://[::1]:1/v1' })).not.toThrow();
+    expect(() => createLlm({ ...cfg, url: 'http://remote.test/v1' })).not.toThrow();
+    expect(() => createLlm({ ...cfg, ...key, url: 'https://remote.test/v1' })).not.toThrow();
+  });
+
+  it('rejects a response over 1 MB (declared or actual)', async () => {
+    const big = 'x'.repeat(1_000_001);
+    const declared = new Response('{}', { headers: { 'content-length': '2000000' } });
+    const actual = new Response(JSON.stringify({ choices: [{ message: { content: big } }] }));
+    for (const r of [declared, actual]) {
+      await expect(createLlm(cfg, fake(r).impl)(msgs)).rejects.toThrow('LLM response malformed');
+    }
+  });
+
+  it('sends redirect: error', async () => {
+    const f = fake(ok());
+    await createLlm(cfg, f.impl)(msgs);
+    expect(f.calls[0]?.init.redirect).toBe('error');
+  });
+
+  it('per-call temperature beats the configured one', async () => {
+    const f = fake(ok());
+    await createLlm({ ...cfg, temperature: 0.2 }, f.impl)(msgs, { temperature: 0 });
+    expect(f.calls[0]?.body.temperature).toBe(0);
+  });
+
+  it('empty WAYMARK_LLM_API_KEY sends no Authorization header', async () => {
+    const config = {
+      version: 1 as const,
+      sources: [],
+      people: [],
+      llm: { ...cfg, url: 'http://llm.test/v1' },
+    };
+    const c = llmConfigFrom(config, { WAYMARK_LLM_API_KEY: '' }) as LlmConfig;
+    const f = fake(ok());
+    await createLlm(c, f.impl)(msgs);
+    expect(f.calls[0]?.init.headers).not.toHaveProperty('authorization');
   });
 });
 
@@ -161,5 +243,25 @@ describe('waymark llm test', () => {
     expect(f.calls[0]?.body.messages).toEqual([
       { role: 'user', content: 'Reply with the single word OK.' },
     ]);
+  });
+  it('truncates a long reply to 40 chars', async () => {
+    await fs.writeFile(
+      path.join(tmp, 'config.json'),
+      JSON.stringify({ version: 1, sources: [], llm: { url: 'http://llm.test/v1', model: 'm1' } }),
+    );
+    vi.stubGlobal('fetch', fake(reply('y'.repeat(60))).impl);
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    expect(await main(['llm', 'test'])).toBe(0);
+    expect(out.mock.calls.map((c) => String(c[0])).join('')).toContain(
+      `replied "${'y'.repeat(40)}" in`,
+    );
+  });
+
+  it('prints the usage error without a subcommand', async () => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    expect(await main(['llm'])).toBe(1);
+    expect(err.mock.calls.map((c) => String(c[0])).join('')).toBe(
+      'error: usage: waymark llm test\n',
+    );
   });
 });

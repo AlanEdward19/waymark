@@ -135,4 +135,24 @@ dependabot[bot]  (7 docs)
       },
     ]);
   });
+  it('never prints e-mail authors, lists any-case [bot] under bots, sorts ties by name', async () => {
+    await add('s/commit/1', 's', ['alan@example.com', 'zed']);
+    await add('s/commit/2', 's', ['@bob@corp.io', 'amy']);
+    await add('s/commit/3', 's', ['Renovate[BOT]']);
+    await main(['reindex']);
+    const io = capture();
+    expect(await main(['people'])).toBe(0);
+    expect(io.out()).toBe(`amy  (1 docs)
+  aliases seen: amy (s 1)
+zed  (1 docs)
+  aliases seen: zed (s 1)
+bots
+Renovate[BOT]  (1 docs)
+  aliases seen: Renovate[BOT] (s 1)
+`);
+    vi.restoreAllMocks();
+    const j = capture();
+    expect(await main(['people', '--json'])).toBe(0);
+    expect(j.out()).not.toMatch(/@(example|corp)/);
+  });
 });

@@ -5,9 +5,15 @@ export type PeopleConfig = NonNullable<Config['people']>;
 export type Resolver = (raw: string) => string;
 
 /** Lookup key: trimmed, one leading `@` stripped, lower-cased. */
-export function personKey(raw: string): string {
+export function personKey(raw: string, lower = true): string {
   const t = raw.trim();
-  return (t.startsWith('@') ? t.slice(1) : t).trim().toLowerCase();
+  const k = (t.startsWith('@') ? t.slice(1) : t).trim();
+  return lower ? k.toLowerCase() : k;
+}
+
+/** E-mail shape (after trim and one leading `@`): `@` followed later by `.`. Never stored or shown. */
+export function isEmailLike(raw: string): boolean {
+  return /@.*\./.test(personKey(raw, false));
 }
 
 function stripAt(raw: string): string {
@@ -53,7 +59,7 @@ export function listPeople(db: Db, resolve: Resolver): PersonSummary[] {
     const seenInDoc = new Set<string>();
     for (const raw of JSON.parse(row.authors) as string[]) {
       const alias = stripAt(raw.trim());
-      if (alias === '') continue;
+      if (alias === '' || isEmailLike(alias)) continue;
       const name = resolve(raw.trim());
       const g = groups.get(name) ?? { total: 0, aliases: new Map<string, Map<string, number>>() };
       groups.set(name, g);

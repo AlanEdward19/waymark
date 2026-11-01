@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { initHome, loadConfig } from '../src/config.js';
+import { createPeopleResolver } from '../src/memory/people.js';
 import { resolvePaths } from '../src/paths.js';
 
 let tmp: string;
@@ -36,7 +37,7 @@ describe('initHome', () => {
 describe('loadConfig', () => {
   it('loads a fresh config', async () => {
     await initHome(paths);
-    expect(await loadConfig(paths)).toEqual({ version: 1, sources: [] });
+    expect(await loadConfig(paths)).toEqual({ version: 1, sources: [], people: [] });
   });
 
   it('parses the README example and defaults include', async () => {
@@ -136,6 +137,52 @@ describe('loadConfig', () => {
       await expect(loadConfig(paths)).rejects.toThrow(
         'tokens must come from environment variables, not config',
       );
+    });
+  });
+  describe('schema bounds', () => {
+    const llm = { url: 'http://localhost:11434/v1', model: 'm' };
+    const people = (p: unknown) => ({ people: p });
+    const bad: Array<[string, unknown]> = [
+      ['people name empty', people([{ name: '', aliases: ['a'] }])],
+      ['people name 101', people([{ name: 'n'.repeat(101), aliases: ['a'] }])],
+      ['people aliases empty', people([{ name: 'A', aliases: [] }])],
+      [
+        'people aliases 51',
+        people([{ name: 'A', aliases: Array.from({ length: 51 }, (_, i) => `a${i}`) }]),
+      ],
+      ['people alias 101', people([{ name: 'A', aliases: ['a'.repeat(101)] }])],
+      ['llm maxTokens 0', { llm: { ...llm, maxTokens: 0 } }],
+      ['llm maxTokens 8193', { llm: { ...llm, maxTokens: 8193 } }],
+      ['llm temperature -0.1', { llm: { ...llm, temperature: -0.1 } }],
+      ['llm temperature 2.1', { llm: { ...llm, temperature: 2.1 } }],
+      ['llm timeoutMs 999', { llm: { ...llm, timeoutMs: 999 } }],
+      ['llm timeoutMs 300001', { llm: { ...llm, timeoutMs: 300001 } }],
+      ['llm url not a url', { llm: { ...llm, url: 'not a url' } }],
+      ['llm unknown key', { llm: { ...llm, api_key: 'k' } }],
+    ];
+    it.each(bad)('rejects %s', async (_name, extra) => {
+      await write({ version: 1, sources: [], ...(extra as object) });
+      await expect(loadConfig(paths)).rejects.toThrow(`Invalid config at ${paths.config}`);
+    });
+    it('passes temperature through', async () => {
+      await write({ version: 1, sources: [], llm: { ...llm, temperature: 0.5 } });
+      expect((await loadConfig(paths)).llm?.temperature).toBe(0.5);
+    });
+  });
+
+  describe('people edge cases', () => {
+    it('loads @first.last (leading @ stripped, not an e-mail)', async () => {
+      await write({ version: 1, sources: [], people: [{ name: 'A', aliases: ['@first.last'] }] });
+      expect((await loadConfig(paths)).people[0]?.aliases).toEqual(['@first.last']);
+    });
+    it('loads case-variant aliases of one name', async () => {
+      await write({
+        version: 1,
+        sources: [],
+        people: [{ name: 'Alan', aliases: ['alan', 'ALAN'] }],
+      });
+      const cfg = await loadConfig(paths);
+      expect(createPeopleResolver(cfg.people)('alan')).toBe('Alan');
     });
   });
 });
