@@ -85,4 +85,29 @@ describe('loadConfig', () => {
       `Invalid config at ${paths.config}: tokens must come from environment variables, not config`,
     );
   });
+
+  describe('people', () => {
+    const people = (p: unknown) => write({ version: 1, sources: [], people: p });
+    it('loads valid people', async () => {
+      await people([{ name: 'Alan Oliveira', aliases: ['@AlanEdward19', 'Alan O.'] }]);
+      expect((await loadConfig(paths)).people).toHaveLength(1);
+    });
+    it('rejects e-mail shaped names and aliases', async () => {
+      await people([{ name: 'Alan', aliases: ['a@b.com'] }]);
+      await expect(loadConfig(paths)).rejects.toThrow(
+        `Invalid config at ${paths.config}: people: use display names or logins, not e-mail addresses ("a@b.com")`,
+      );
+      await people([{ name: 'a@b.com', aliases: ['x'] }]);
+      await expect(loadConfig(paths)).rejects.toThrow('not e-mail addresses ("a@b.com")');
+    });
+    it('rejects an alias under two names', async () => {
+      await people([
+        { name: 'A', aliases: ['x'] },
+        { name: 'B', aliases: ['x'] },
+      ]);
+      await expect(loadConfig(paths)).rejects.toThrow(
+        `Invalid config at ${paths.config}: people: alias "x" is listed under both "A" and "B"`,
+      );
+    });
+  });
 });

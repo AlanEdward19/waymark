@@ -9,6 +9,7 @@ import { openDb, reindex } from './index/db.js';
 import { formatHits } from './index/format.js';
 import { hybridSearch, queryEmbedderFor } from './index/hybrid.js';
 import { runStdio } from './mcp/server.js';
+import { createPeopleResolver, formatPeople, listPeople } from './memory/people.js';
 import { resolvePaths } from './paths.js';
 import { DOC_KINDS, isDocKind } from './store/doc.js';
 import { readDoc, serializeDoc } from './store/markdown.js';
@@ -31,6 +32,8 @@ Commands:
   search <query...> [--kind <k>]... [--source <id>]... [--limit <n>] [--json]
                  Ranked search over indexed documents
   show <id>      Print a document as markdown
+  people [--json]
+                 List person names seen in the index, grouped by canonical name
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -166,6 +169,23 @@ export async function main(argv: string[]): Promise<number> {
         const doc = await readDoc(resolvePaths().wiki, id);
         if (!doc) throw new Error(`document not found: ${id}`);
         process.stdout.write(serializeDoc(doc));
+        return 0;
+      }
+      case 'people': {
+        const paths = resolvePaths();
+        const resolve = createPeopleResolver((await loadConfig(paths)).people);
+        const db = openDb(paths.db);
+        try {
+          const people = listPeople(db, resolve);
+          process.stdout.write(
+            values.json
+              ? `${JSON.stringify(people, null, 2)}
+`
+              : formatPeople(people),
+          );
+        } finally {
+          db.close();
+        }
         return 0;
       }
       default:

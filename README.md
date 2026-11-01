@@ -104,16 +104,17 @@ Secrets never go in `config.json`; they come from environment variables listed p
 <details>
 <summary>All commands</summary>
 
-| Command                        | What it does                                                                        |
-| ------------------------------ | ----------------------------------------------------------------------------------- |
-| `waymark init`                 | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/` |
-| `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                           |
-| `waymark search "<query>"`     | Ranked, source-linked results                                                       |
-| `waymark show <id>`            | Print one document                                                                  |
-| `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                    |
-| `waymark reindex`              | Rebuild the index from the markdown wiki                                            |
-| `waymark mcp`                  | MCP server over stdio                                                               |
-| `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                      |
+| Command                        | What it does                                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `waymark init`                 | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/`                               |
+| `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                                                         |
+| `waymark search "<query>"`     | Ranked, source-linked results                                                                                     |
+| `waymark show <id>`            | Print one document                                                                                                |
+| `waymark people [--json]`      | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
+| `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                                                  |
+| `waymark reindex`              | Rebuild the index from the markdown wiki                                                                          |
+| `waymark mcp`                  | MCP server over stdio                                                                                             |
+| `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
 
 </details>
 

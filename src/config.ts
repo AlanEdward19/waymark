@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as z from 'zod';
+import { createPeopleResolver } from './memory/people.js';
 import type { WaymarkPaths } from './paths.js';
 import { ensureWikiRepo } from './store/wikigit.js';
 
@@ -60,10 +61,15 @@ export const EmbeddingsSchema = z.object({
   model: z.string().min(1),
   batchSize: z.number().int().min(1).max(256).default(32),
 });
+export const PersonSchema = z.object({
+  name: z.string().min(1).max(100),
+  aliases: z.array(z.string().min(1).max(100)).min(1).max(50),
+});
 export const ConfigSchema = z.object({
   version: z.literal(1),
   sources: z.array(SourceSchema).default([]),
   embeddings: EmbeddingsSchema.optional(),
+  people: z.array(PersonSchema).optional(), // absent = no mapping
 });
 export type Config = z.infer<typeof ConfigSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
@@ -107,6 +113,20 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
   for (const s of parsed.data.sources) {
     if (seen.has(s.id)) throw invalid(`duplicate source id "${s.id}"`);
     seen.add(s.id);
+  }
+
+  // display names and logins only: never e-mail addresses (epic #20)
+  for (const p of parsed.data.people ?? []) {
+    for (const v of [p.name, ...p.aliases]) {
+      if (/@.*\./.test(v.trim().replace(/^@/, ''))) {
+        throw invalid(`people: use display names or logins, not e-mail addresses ("${v}")`);
+      }
+    }
+  }
+  try {
+    createPeopleResolver(parsed.data.people);
+  } catch (err) {
+    throw invalid((err as Error).message);
   }
   return parsed.data;
 }
