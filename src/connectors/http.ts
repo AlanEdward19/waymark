@@ -5,7 +5,7 @@ export interface FetchJsonOptions extends RequestInit {
 
 const MAX_WAIT_S = 60;
 
-function retryAfterSeconds(header: string | null): number {
+export function retryAfterSeconds(header: string | null): number {
   if (header === null || header.trim() === '') return 5;
   const n = Number(header);
   if (Number.isFinite(n)) return Math.max(0, n);

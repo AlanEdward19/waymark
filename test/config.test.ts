@@ -110,4 +110,32 @@ describe('loadConfig', () => {
       );
     });
   });
+
+  describe('llm', () => {
+    it('loads without llm and with defaults', async () => {
+      await write({ version: 1, sources: [] });
+      expect((await loadConfig(paths)).llm).toBeUndefined();
+      await write({
+        version: 1,
+        sources: [],
+        llm: { url: 'http://localhost:11434/v1', model: 'm' },
+      });
+      expect((await loadConfig(paths)).llm).toEqual({
+        url: 'http://localhost:11434/v1',
+        model: 'm',
+        maxTokens: 800,
+        timeoutMs: 60000,
+      });
+    });
+    it('rejects apiKey inside llm', async () => {
+      await write({
+        version: 1,
+        sources: [],
+        llm: { url: 'http://x/v1', model: 'm', apiKey: 'k' },
+      });
+      await expect(loadConfig(paths)).rejects.toThrow(
+        'tokens must come from environment variables, not config',
+      );
+    });
+  });
 });

@@ -65,10 +65,18 @@ export const PersonSchema = z.object({
   name: z.string().min(1).max(100),
   aliases: z.array(z.string().min(1).max(100)).min(1).max(50),
 });
+export const LlmSchema = z.object({
+  url: z.url(), // OpenAI-compatible base URL, e.g. http://localhost:11434/v1
+  model: z.string().min(1),
+  maxTokens: z.number().int().min(1).max(8192).default(800),
+  temperature: z.number().min(0).max(2).optional(), // omitted from requests unless set
+  timeoutMs: z.number().int().min(1000).max(300000).default(60000),
+});
 export const ConfigSchema = z.object({
   version: z.literal(1),
   sources: z.array(SourceSchema).default([]),
   embeddings: EmbeddingsSchema.optional(),
+  llm: LlmSchema.optional(),
   people: z.array(PersonSchema).optional(), // absent = no mapping
 });
 export type Config = z.infer<typeof ConfigSchema>;
@@ -98,8 +106,8 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
     throw invalid((err as Error).message);
   }
 
-  const r = raw as { sources?: unknown; embeddings?: unknown } | null;
-  const secretHolders = [...(Array.isArray(r?.sources) ? r.sources : []), r?.embeddings];
+  const r = raw as { sources?: unknown; embeddings?: unknown; llm?: unknown } | null;
+  const secretHolders = [...(Array.isArray(r?.sources) ? r.sources : []), r?.embeddings, r?.llm];
   for (const s of secretHolders) {
     if (s !== null && typeof s === 'object' && ('token' in s || 'apiKey' in s)) {
       throw invalid('tokens must come from environment variables, not config');
