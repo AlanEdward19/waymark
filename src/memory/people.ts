@@ -54,7 +54,7 @@ export function listPeople(db: Db, resolve: Resolver): PersonSummary[] {
     for (const raw of JSON.parse(row.authors) as string[]) {
       const alias = stripAt(raw.trim());
       if (alias === '') continue;
-      const name = resolve(raw);
+      const name = resolve(raw.trim());
       const g = groups.get(name) ?? { total: 0, aliases: new Map<string, Map<string, number>>() };
       groups.set(name, g);
       if (!seenInDoc.has(name)) {

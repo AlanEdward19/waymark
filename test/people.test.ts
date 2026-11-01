@@ -83,35 +83,56 @@ describe('waymark people', () => {
       JSON.stringify({
         version: 1,
         sources: [],
-        people: [{ name: 'Alan Oliveira', aliases: ['AlanEdward19'] }],
+        people: [{ name: 'Alan Oliveira', aliases: ['AlanEdward19', 'Alan O.'] }],
       }),
     );
     for (let i = 0; i < 2; i++)
       await add(`waymark-git/commit/${i}`, 'waymark-git', ['AlanEdward19']);
     await add('waymark-gh/pull_request/1', 'waymark-gh', ['@AlanEdward19', 'bob']);
-    await add('waymark-gh/pull_request/2', 'waymark-gh', ['bob', 'dependabot[bot]']);
-    await add('waymark-gh/pull_request/3', 'waymark-gh', ['bob']);
-    await add('waymark-gh/pull_request/4', 'waymark-gh', ['bob']);
+    await add('waymark-gh/pull_request/2', 'waymark-gh', ['bob ', 'dependabot[bot]']);
+    for (const n of [3, 4, 5]) await add(`waymark-gh/pull_request/${n}`, 'waymark-gh', ['bob']);
+    for (const n of [6, 7, 8, 9, 10, 11]) {
+      await add(`waymark-gh/pull_request/${n}`, 'waymark-gh', ['dependabot[bot]']);
+    }
+    await add('waymark-chat/chat/1', 'waymark-chat', ['Alan O.', 'bob']);
+    // two aliases of one person in one doc: counts once toward the total
+    await add('waymark-gh/issue/1', 'waymark-gh', ['AlanEdward19', 'Alan Oliveira']);
     await main(['reindex']);
 
     const io = capture();
     expect(await main(['people'])).toBe(0);
-    expect(io.out()).toBe(`bob  (4 docs)
-  aliases seen: bob (waymark-gh 4)
-Alan Oliveira  (3 docs)
-  aliases seen: AlanEdward19 (waymark-git 2, waymark-gh 1)
+    expect(io.out()).toBe(`bob  (6 docs)
+  aliases seen: bob (waymark-gh 5, waymark-chat 1)
+Alan Oliveira  (5 docs)
+  aliases seen: AlanEdward19 (waymark-gh 2, waymark-git 2), Alan O. (waymark-chat 1), Alan Oliveira (waymark-gh 1)
 bots
-dependabot[bot]  (1 docs)
-  aliases seen: dependabot[bot] (waymark-gh 1)
+dependabot[bot]  (7 docs)
+  aliases seen: dependabot[bot] (waymark-gh 7)
 `);
 
     vi.restoreAllMocks();
     const j = capture();
     expect(await main(['people', '--json'])).toBe(0);
-    expect(JSON.parse(j.out())[1]).toEqual({
-      name: 'Alan Oliveira',
-      total: 3,
-      aliases: [{ alias: 'AlanEdward19', bySource: { 'waymark-git': 2, 'waymark-gh': 1 } }],
-    });
+    expect(JSON.parse(j.out())).toEqual([
+      {
+        name: 'bob',
+        total: 6,
+        aliases: [{ alias: 'bob', bySource: { 'waymark-gh': 5, 'waymark-chat': 1 } }],
+      },
+      {
+        name: 'Alan Oliveira',
+        total: 5,
+        aliases: [
+          { alias: 'AlanEdward19', bySource: { 'waymark-gh': 2, 'waymark-git': 2 } },
+          { alias: 'Alan O.', bySource: { 'waymark-chat': 1 } },
+          { alias: 'Alan Oliveira', bySource: { 'waymark-gh': 1 } },
+        ],
+      },
+      {
+        name: 'dependabot[bot]',
+        total: 7,
+        aliases: [{ alias: 'dependabot[bot]', bySource: { 'waymark-gh': 7 } }],
+      },
+    ]);
   });
 });

@@ -182,8 +182,7 @@ export async function main(argv: string[]): Promise<number> {
           { role: 'user', content: 'Reply with the single word OK.' },
         ]);
         process.stdout.write(
-          `LLM ok: ${cfg.model} at ${new URL(cfg.url).host} replied "${reply.slice(0, 40)}" in ${Date.now() - started} ms
-`,
+          `LLM ok: ${cfg.model} at ${new URL(cfg.url).host} replied "${reply.slice(0, 40)}" in ${Date.now() - started} ms\n`,
         );
         return 0;
       }
@@ -194,10 +193,7 @@ export async function main(argv: string[]): Promise<number> {
         try {
           const people = listPeople(db, resolve);
           process.stdout.write(
-            values.json
-              ? `${JSON.stringify(people, null, 2)}
-`
-              : formatPeople(people),
+            values.json ? `${JSON.stringify(people, null, 2)}\n` : formatPeople(people),
           );
         } finally {
           db.close();

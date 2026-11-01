@@ -70,6 +70,27 @@ describe('createLlm', () => {
     expect(f.calls).toHaveLength(2);
   });
 
+  it('retries 503 then succeeds', async () => {
+    const f = fake(
+      new Response('', { status: 503, headers: { 'retry-after': '0' } }),
+      reply('done'),
+    );
+    expect(await createLlm(cfg, f.impl)(msgs)).toBe('done');
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it('passes timeoutMs to the request signal', async () => {
+    const hang = vi.fn(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+        }),
+    ) as unknown as typeof fetch;
+    await expect(createLlm({ ...cfg, timeoutMs: 20 }, hang)(msgs)).rejects.toThrow(
+      'LLM request timed out after 20 ms',
+    );
+  });
+
   it('throws the exact errors and never leaks the key or bodies', async () => {
     const key = 'sk-secret';
     const keyed = { ...cfg, apiKey: key };
