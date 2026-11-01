@@ -124,7 +124,7 @@ describe('handleHook', () => {
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart');
     expect(out.hookSpecificOutput.additionalContext).toContain('- Use pnpm (me/note/n1)');
     expect(out.hookSpecificOutput.additionalContext).toContain(
-      'leave a handoff with create_handoff.',
+      'leave a handoff with create_handoff; to pick one up, list_handoffs then claim_handoff.',
     );
   });
 

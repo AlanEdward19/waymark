@@ -95,7 +95,9 @@ describe('handoffs', () => {
   it('startContext lists open handoffs for the project only', async () => {
     const db = openDb(dbPath);
     try {
-      expect(startContext(db, 'waymark')).toContain('leave a handoff with create_handoff.');
+      expect(startContext(db, 'waymark')).toContain(
+        'leave a handoff with create_handoff; to pick one up, list_handoffs then claim_handoff.',
+      );
       await createHandoff(db, wiki, input('waymark'));
       await createHandoff(db, wiki, input('other', 'Other work'));
       const out = startContext(db, 'waymark');
