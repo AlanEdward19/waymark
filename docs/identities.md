@@ -73,6 +73,22 @@ First match wins:
 Waymark requests the scope `https://app.vssps.visualstudio.com/.default`. Tokens are cached in
 memory and renewed 5 minutes before they expire.
 
+### Source config
+
+```json
+{ "id": "waymark-ado", "type": "azure-devops", "organization": "contoso", "project": "Shop" }
+```
+
+`include` is `["workitems", "pulls"]` by default (pull requests are not implemented yet). Work
+items need read access to Boards (scope `vso.work`): the identity's access level is **Basic** and
+its group gets read-only permissions on the project (View work items in this node). Waymark stores
+display names only, never e-mail addresses.
+
+### Local testing with a personal token
+
+`"auth": "personal"` reads `AZURE_DEVOPS_EXT_PAT` or `AZURE_DEVOPS_PAT` (sent as Basic auth), else
+`AZURE_DEVOPS_TOKEN` (sent as Bearer), and logs `warn: ... uses a personal token`. Development only.
+
 ### Rotate
 
 Upload a new certificate (or create a new secret), update the PEM file or env var, then delete the
@@ -112,10 +128,21 @@ Waymark exchanges them at `https://auth.atlassian.com/oauth/token` (`client_cred
 `GET https://<site>/_edge/tenant_info`, and calls
 `https://api.atlassian.com/ex/jira/<cloudId>` or `https://api.atlassian.com/ex/confluence/<cloudId>`.
 
+### Jira source
+
+```json
+{ "id": "waymark-jira", "type": "jira", "site": "acme.atlassian.net", "project": "ENG" }
+```
+
+Use exactly one of `project` (key) or `jql`. The service account needs Browse access to that project
+and the `read:jira-work` scope. Issues and comments are ingested as `issue` docs, incrementally by
+`updated`; only display names are stored, never e-mail addresses.
+
 ### Local testing with a personal token
 
 `"auth": "personal"` uses your email plus an API token with Basic auth against
-`https://<site>`. Development only; it logs a warning on every sync.
+`https://<site>` (`JIRA_EMAIL` and `JIRA_API_TOKEN` for Jira). Development only; it logs a warning on
+every sync.
 
 ### Rotate
 

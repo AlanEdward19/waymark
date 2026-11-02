@@ -1,8 +1,10 @@
 import path from 'node:path';
 import { loadConfig, type SourceConfig } from './config.js';
+import { azureDevOpsConnector } from './connectors/azure-devops/index.js';
 import { discordConnector } from './connectors/discord.js';
 import { gitConnector } from './connectors/git.js';
 import { githubConnector } from './connectors/github/index.js';
+import { jiraConnector } from './connectors/jira/index.js';
 import { linearConnector } from './connectors/linear.js';
 import { notionConnector } from './connectors/notion.js';
 import type { Connector } from './connectors/types.js';
@@ -16,12 +18,16 @@ import { commitWiki } from './store/wikigit.js';
 
 function buildConnector(source: SourceConfig, configDir: string): Connector {
   switch (source.type) {
+    case 'azure-devops':
+      return azureDevOpsConnector(source);
     case 'discord':
       return discordConnector(source);
     case 'git':
       return gitConnector(source, configDir);
     case 'github':
       return githubConnector(source);
+    case 'jira':
+      return jiraConnector(source);
     case 'linear':
       return linearConnector(source);
     case 'notion':

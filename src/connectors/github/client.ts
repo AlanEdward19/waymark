@@ -84,6 +84,15 @@ export function createGithubApi(tokens: TokenProvider): GithubApi {
           per_page: 100,
         }),
       ) as never,
+    pullFiles: (owner, repo, n) =>
+      wrap(owner, repo, () =>
+        octokit.paginate(octokit.rest.pulls.listFiles, {
+          owner,
+          repo,
+          pull_number: n,
+          per_page: 100,
+        }),
+      ) as never,
     issueComments: (owner, repo, n) =>
       wrap(owner, repo, () =>
         octokit.paginate(octokit.rest.issues.listComments, {

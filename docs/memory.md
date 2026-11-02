@@ -52,3 +52,10 @@ OpenAI:
 - Check the setup with `waymark llm test`: it prints `LLM ok: <model> at <host> replied "..." in <ms> ms`.
 
 **Text sent to the endpoint is document text (already secret-redacted); use a local model to keep everything on your machine.**
+
+## Path facts
+
+Waymark indexes which repository paths each commit, pull request and repo doc touches, and who touched them (author, reviewer, review commenter). They live in the `path_facts` table of the index, which `waymark reindex` rebuilds from the wiki.
+
+- GitHub pull request documents end with a `## Files` section (at most 1000 files). Fetching it costs one extra `pulls.listFiles` API call per 100 changed files of each synced pull request.
+- Upgrading: the first run on an existing index derives facts from the documents already stored. Pull requests synced before the upgrade have no `## Files` section until they are updated on GitHub and re-synced, because sync is incremental.

@@ -82,4 +82,22 @@ describe('waymark sync', () => {
       'gh: error: Source "gh": set GITHUB_TOKEN (or GH_TOKEN) to sync GitHub. Tip: GITHUB_TOKEN=$(gh auth token) waymark sync\n',
     );
   });
+
+  it('routes azure-devops sources to their connector', async () => {
+    const paths = await home([
+      {
+        id: 'ado',
+        type: 'azure-devops',
+        organization: 'contoso',
+        project: 'Shop',
+        auth: 'personal',
+      },
+    ]);
+    vi.stubEnv('AZURE_DEVOPS_EXT_PAT', '');
+    vi.stubEnv('AZURE_DEVOPS_PAT', '');
+    vi.stubEnv('AZURE_DEVOPS_TOKEN', '');
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const [r] = await syncAll(paths);
+    expect(r?.error).toMatch(/^Source "ado": set AZURE_DEVOPS_TOKEN to sync\./);
+  });
 });

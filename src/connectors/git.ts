@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { GitSource } from '../config.js';
 import { defaultRun, type RunGit } from '../git.js';
+import { demoteHeadings } from '../memory/paths.js';
 import { makeId, type WaymarkDoc } from '../store/doc.js';
 import { syncDocs } from './git-docs.js';
 import type { Connector } from './types.js';
@@ -60,8 +61,8 @@ export function parseGitLog(sourceId: string, output: string, remote?: string): 
         .split('\n')
         .map((f) => f.trim())
         .filter(Boolean);
-      const parts = [subject];
-      if (body.trim()) parts.push(body.trim());
+      const parts = [demoteHeadings(subject)];
+      if (body.trim()) parts.push(demoteHeadings(body.trim()));
       if (files.length > 0) parts.push(`## Files\n\n${files.map((f) => `- ${f}`).join('\n')}`);
       return {
         id: makeId(sourceId, 'commit', sha),

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   GhIssueComment,
   GhPull,
+  GhPullFile,
   GhReview,
   GhReviewComment,
   GithubApi,
@@ -47,6 +48,7 @@ interface Data {
   reviews?: GhReview[];
   comments?: GhReviewComment[];
   conv?: GhIssueComment[];
+  files?: GhPullFile[];
 }
 
 function fakeApi(pages: GhPull[][], data: Data = {}) {
@@ -61,6 +63,7 @@ function fakeApi(pages: GhPull[][], data: Data = {}) {
     async *issuePages() {},
     reviews: async () => data.reviews ?? [],
     reviewComments: async () => data.comments ?? [],
+    pullFiles: async () => data.files ?? [],
     issueComments: async () => data.conv ?? [],
   };
   return { api, asked };
@@ -180,6 +183,57 @@ describe('github pulls', () => {
         '## Conversation\n\n- **@carol** (2026-10-03): Ship it',
       ].join('\n\n'),
     );
+  });
+
+  it('appends a ## Files section last, rendering renames', async () => {
+    const files: GhPullFile[] = [
+      { filename: 'src/a.ts' },
+      { filename: 'src/new.ts', previous_filename: 'src/old.ts' },
+      ...Array.from({ length: 100 }, (_, i) => ({ filename: `f${i}.ts` })),
+    ];
+    const { api } = fakeApi([[pull(5, '2026-10-03T00:00:00Z')]], {
+      files,
+      conv: [
+        {
+          id: 1,
+          user: user('carol'),
+          body: 'hi',
+          created_at: '2026-10-03T00:00:00Z',
+          html_url: '',
+        },
+      ],
+    });
+    const { docs } = await run(api);
+    const body = docs[0]?.body ?? '';
+    expect(body).toContain('## Conversation');
+    expect(body).toContain(
+      '## Files\n\n- src/a.ts\n- src/new.ts (renamed from src/old.ts)\n- f0.ts\n',
+    );
+    expect(body.lastIndexOf('## Files')).toBeGreaterThan(body.indexOf('## Conversation'));
+    expect(body.endsWith('- f99.ts')).toBe(true);
+  });
+
+  it('logs once when GitHub truncated the file list', async () => {
+    const files = Array.from({ length: 3000 }, (_, i) => ({ filename: `f${i}` }));
+    const { api } = fakeApi([[pull(6, '2026-10-03T00:00:00Z')]], { files });
+    const logs: string[] = [];
+    const docs: WaymarkDoc[] = [];
+    await githubConnector(
+      source,
+      api,
+    )({
+      sourceId: 'gh',
+      cursor: null,
+      log: (m) => logs.push(m),
+      emit: async (d) => {
+        docs.push(d);
+      },
+    });
+    expect(logs).toEqual([
+      'pr #6: file list truncated at 3000 by GitHub',
+      'pr #6: file list cut to 1000 files',
+    ]);
+    expect(docs[0]?.body.match(/^- f\d+$/gm)).toHaveLength(1000);
   });
 
   it('omits empty sections and uses the placeholder description', async () => {
