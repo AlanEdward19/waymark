@@ -6,6 +6,8 @@ export interface WaymarkPaths {
   config: string;
   wiki: string;
   db: string;
+  /** accounts and tokens: state, not cache; never touched by reindex */
+  authDb: string;
 }
 
 export function resolvePaths(env: NodeJS.ProcessEnv = process.env): WaymarkPaths {
@@ -17,5 +19,6 @@ export function resolvePaths(env: NodeJS.ProcessEnv = process.env): WaymarkPaths
     config: path.join(home, 'config.json'),
     wiki: path.join(home, 'wiki'),
     db: path.join(home, 'db', 'waymark.db'),
+    authDb: path.join(home, 'auth', 'auth.db'),
   };
 }

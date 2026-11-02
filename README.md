@@ -104,18 +104,19 @@ Secrets never go in `config.json`; they come from environment variables listed p
 <details>
 <summary>All commands</summary>
 
-| Command                        | What it does                                                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `waymark init`                 | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/`                               |
-| `waymark sync [--source <id>]` | Pull new and changed documents from every source (or one)                                                         |
-| `waymark search "<query>"`     | Ranked, source-linked results                                                                                     |
-| `waymark show <id>`            | Print one document                                                                                                |
-| `waymark embed`                | Embed new or changed documents (when `embeddings` is configured)                                                  |
-| `waymark reindex`              | Rebuild the index from the markdown wiki                                                                          |
-| `waymark mcp`                  | MCP server over stdio                                                                                             |
-| `waymark hook <harness>`       | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
-| `waymark llm test`             | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
-| `waymark people [--json]`      | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
+| Command                                  | What it does                                                                                                      |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `waymark init`                           | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/`                               |
+| `waymark sync [--source <id>]`           | Pull new and changed documents from every source (or one)                                                         |
+| `waymark search "<query>"`               | Ranked, source-linked results                                                                                     |
+| `waymark show <id>`                      | Print one document                                                                                                |
+| `waymark embed`                          | Embed new or changed documents (when `embeddings` is configured)                                                  |
+| `waymark reindex`                        | Rebuild the index from the markdown wiki                                                                          |
+| `waymark mcp`                            | MCP server over stdio                                                                                             |
+| `waymark hook <harness>`                 | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
+| `waymark llm test`                       | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
+| `waymark people [--json]`                | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
+| `waymark user ...` / `waymark token ...` | Manage users, groups, linked identities and API tokens (see [docs/server.md](docs/server.md))                     |
 
 </details>
 
@@ -134,7 +135,7 @@ Waymark is not a hosted SaaS, not a chatbot and not an agent framework: it suppl
 
 ## Documentation
 
-[Search and ranking](docs/search.md) · [Organisational memory](docs/memory.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md)
+[Search and ranking](docs/search.md) · [Organisational memory](docs/memory.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [Team server: users and tokens](docs/server.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md) · [ADR-0003 team server](docs/adr/0003-team-server.md)
 
 ## Contributing
 
