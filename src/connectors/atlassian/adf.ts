@@ -42,14 +42,16 @@ function table(n: AdfNode): string {
             .map(render)
             .join(' ')
             .replace(/\s*\n\s*/g, ' ')
-            .trim(),
+            .trim()
+            .replace(/\|/g, '\\|'),
         )
         .join(' | '),
     )
     .join('\n');
 }
 
-function render(n: AdfNode): string {
+function render(n: AdfNode | null | undefined): string {
+  if (!n) return '';
   switch (n.type) {
     case 'text':
       return withMarks(n);

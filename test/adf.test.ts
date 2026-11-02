@@ -99,6 +99,15 @@ const cases: Array<[string, AdfNode | null | undefined, string]> = [
     }),
     'A | B\n1 | 2',
   ],
+  ['null child', { type: 'doc', content: [null, p(t('ok'))] } as unknown as AdfNode, 'ok'],
+  [
+    'pipe in cell',
+    doc({
+      type: 'table',
+      content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [p(t('a|b'))] }] }],
+    }),
+    'a\\|b',
+  ],
   ['unknown node recurses', doc({ type: 'mystery', content: [p(t('kept'))] }), 'kept'],
 ];
 

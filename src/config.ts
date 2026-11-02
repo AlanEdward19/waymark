@@ -54,6 +54,9 @@ export const JiraSourceSchema = z
   })
   .refine((s) => (s.project === undefined) !== (s.jql === undefined), {
     message: 'jira sources need exactly one of "project" or "jql"',
+  })
+  .refine((s) => s.jql === undefined || !/\border\s+by\b/i.test(s.jql), {
+    message: 'jira: remove ORDER BY from jql; Waymark orders by updated',
   });
 export const NotionSourceSchema = z.object({
   id: SourceId,

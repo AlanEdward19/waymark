@@ -110,6 +110,54 @@ describe('jira connector', () => {
     );
   });
 
+  it('sends maxResults and the exact field list', async () => {
+    const r = await run([{ issues: [], isLast: true }]);
+    const b = body(r.calls[0] as never);
+    expect(b.maxResults).toBe(100);
+    expect(b.fields).toEqual([
+      'summary',
+      'description',
+      'status',
+      'labels',
+      'issuetype',
+      'reporter',
+      'created',
+      'updated',
+      'comment',
+    ]);
+  });
+
+  it('stops when isLast is true even with a nextPageToken', async () => {
+    const r = await run([
+      {
+        issues: [issue('ENG-1', '2026-10-03T12:00:00.000+0000')],
+        nextPageToken: 'x',
+        isLast: true,
+      },
+    ]);
+    expect(r.calls).toHaveLength(1);
+  });
+
+  it('falls back to _No description._ and escapes quotes in the project key', async () => {
+    const i = issue('ENG-6', '2026-10-03T12:00:00.000+0000');
+    i.fields.description = null as never;
+    const r = await run([{ issues: [i], isLast: true }], null, {
+      ...source,
+      project: 'E"N\\G',
+    });
+    expect((r.docs[0] as WaymarkDoc).body).toContain('_No description._');
+    expect(body(r.calls[0] as never).jql).toBe('(project = "E\\"N\\\\G") ORDER BY updated ASC');
+  });
+
+  it('an empty comment page ends the comment loop', async () => {
+    const r = await run([
+      { issues: [issue('ENG-7', '2026-10-03T12:00:00.000+0000', [], 5)], isLast: true },
+      { comments: [], total: 5 },
+    ]);
+    expect(r.calls).toHaveLength(2);
+    expect(r.docs).toHaveLength(1);
+  });
+
   it('second run subtracts 24h from the cursor in the JQL', async () => {
     const r = await run([{ issues: [], isLast: true }], '2026-10-05T10:30:45.000Z');
     expect(body(r.calls[0] as never).jql).toBe(
@@ -223,6 +271,10 @@ describe('jira config', () => {
     expect(parse({ site: 'acme.atlassian.net', jql: 'a = b' })).toBe(true);
     expect(parse({ site: 'acme.atlassian.net' })).toBe(false);
     expect(parse({ site: 'acme.atlassian.net', project: 'ENG', jql: 'a = b' })).toBe(false);
+  });
+  it('rejects ORDER BY in jql', () => {
+    expect(parse({ site: 'acme.atlassian.net', jql: 'a = b order  by created' })).toBe(false);
+    expect(parse({ site: 'acme.atlassian.net', jql: 'text ~ "border"' })).toBe(true);
   });
   it('rejects a bad site', () => {
     expect(parse({ site: 'acme.example.com', project: 'ENG' })).toBe(false);
