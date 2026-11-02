@@ -23,9 +23,12 @@ export function renderWorkItem(
   const type = str(f['System.WorkItemType']);
   const state = str(f['System.State']);
   const creator = name(f['System.CreatedBy']);
-  const commenters = comments.filter((c) => name(c.createdBy) !== '' && md(c.text) !== '');
+  const commenters = comments.filter((c) => md(c.text) !== '');
+  const commenter = (c: AdoComment) => name(c.createdBy) || 'unknown';
   const authors = [
-    ...new Set([...(creator ? [creator] : []), ...commenters.map((c) => name(c.createdBy))]),
+    ...new Set(
+      [...(creator ? [creator] : []), ...commenters.map(commenter)].filter((a) => a !== 'unknown'),
+    ),
   ];
   const tags = str(f['System.Tags'])
     .split(';')
@@ -42,7 +45,7 @@ export function renderWorkItem(
   if (repro) sections.push(`## Repro steps\n\n${repro}`);
   if (commenters.length > 0) {
     const lines = commenters.map(
-      (c) => `- **${name(c.createdBy)}** (${day(c.createdDate)}): ${indent(md(c.text), '  ')}`,
+      (c) => `- **${commenter(c)}** (${day(c.createdDate)}): ${indent(md(c.text), '  ')}`,
     );
     sections.push(`## Conversation\n\n${lines.join('\n')}`);
   }
@@ -52,7 +55,7 @@ export function renderWorkItem(
     kind: 'issue',
     sourceId,
     title: str(f['System.Title']),
-    url: `https://dev.azure.com/${organization}/${project}/_workitems/edit/${item.id}`,
+    url: `https://dev.azure.com/${organization}/${encodeURIComponent(project)}/_workitems/edit/${item.id}`,
     authors,
     createdAt: str(f['System.CreatedDate']),
     updatedAt: str(f['System.ChangedDate']),
@@ -83,7 +86,10 @@ export async function syncWorkItems(
       await ctx.emit(renderWorkItem(ctx.sourceId, organization, project, item, comments));
       count++;
       const changed = str(item.fields['System.ChangedDate']);
-      if (changed && (newest === undefined || changed > newest)) newest = changed;
+      // ADO timestamps have variable fractional precision: compare as dates, not strings
+      if (changed && (newest === undefined || Date.parse(changed) > Date.parse(newest))) {
+        newest = changed;
+      }
     }
   }
   return { cursor: newest, count };

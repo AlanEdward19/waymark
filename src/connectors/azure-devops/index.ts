@@ -24,6 +24,7 @@ function parseCursor(raw: string | null): Cursor {
 export interface AzureDevOpsDeps {
   api?: AzureDevOpsApi; // tests: brings its own credentials
   tokens?: TokenProvider; // tests: fake Entra provider
+  entra?: typeof entraTokenProvider; // tests: spy on the requested scope
   fetch?: typeof fetch;
 }
 
@@ -41,7 +42,9 @@ export function azureDevOpsConnector(
         );
         authorization = personalAuthorization(source.id);
       } else {
-        authorization = appAuthorization(deps.tokens ?? entraTokenProvider({ scope: ADO_SCOPE }));
+        authorization = appAuthorization(
+          deps.tokens ?? (deps.entra ?? entraTokenProvider)({ scope: ADO_SCOPE }),
+        );
       }
       api = createAzureDevOpsApi(source.organization, source.project, authorization, deps.fetch);
     }

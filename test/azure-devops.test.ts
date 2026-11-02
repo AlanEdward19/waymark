@@ -108,7 +108,7 @@ describe('azure-devops work items', () => {
     const { docs } = await run(f.api);
     const d = docs[0] as WaymarkDoc;
     expect(d.id).toBe('ado/issue/7');
-    expect(d.url).toBe('https://dev.azure.com/contoso/My Shop/_workitems/edit/7');
+    expect(d.url).toBe('https://dev.azure.com/contoso/My%20Shop/_workitems/edit/7');
     expect(d.tags).toEqual(['state:Active', 'type:Bug', 'label:api', 'label:urgent']);
     expect(d.authors).toEqual(['Dana', 'Eve']);
     expect(d.body).toContain('#7 · Bug · Active · @Dana');
@@ -214,5 +214,133 @@ describe('azure-devops client', () => {
     const err = await authHeader('personal').catch((e: Error) => e);
     expect((err as Error).message).toMatch(/^Source "ado": set AZURE_DEVOPS_TOKEN to sync\./);
     expect((err as Error).message).not.toContain('az account');
+  });
+});
+
+describe('azure-devops hardening', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const ctxFor = (docs: WaymarkDoc[], logs: string[], cursor: string | null = null) => ({
+    sourceId: 'ado',
+    cursor,
+    log: (m: string) => logs.push(m),
+    emit: async (d: WaymarkDoc) => {
+      docs.push(d);
+    },
+    remove: async () => {},
+    readDoc: async () => null,
+    listIds: () => [],
+  });
+
+  it('cursor is the true max with mixed fractional precision, whatever the order', async () => {
+    const f = fakeApi([
+      item(1, '2026-10-02T00:00:00.5Z'),
+      item(2, '2026-10-02T00:00:00.78Z'),
+      item(3, '2026-10-02T00:00:00.7Z'),
+    ]);
+    const { res } = await run(f.api);
+    expect(JSON.parse(res.cursor as string)).toEqual({ workitems: '2026-10-02T00:00:00.78Z' });
+  });
+
+  it('renders fallbacks, repro steps, dedup, indentation and unnamed commenters', async () => {
+    const f = fakeApi(
+      [
+        item(9, '2026-10-02T00:00:00Z', {
+          'System.Description': undefined,
+          'Microsoft.VSTS.TCM.ReproSteps': '<p>Click it</p>',
+        }),
+      ],
+      {
+        9: [
+          {
+            text: '<p>first</p><p>second</p>',
+            createdBy: { displayName: 'Dana' },
+            createdDate: '2026-10-03T00:00:00Z',
+          },
+          { text: '<p>anon</p>', createdDate: '2026-10-04T00:00:00Z' },
+        ],
+      },
+    );
+    const { docs } = await run(f.api);
+    const d = docs[0] as WaymarkDoc;
+    expect(d.body).toContain('_No description._');
+    expect(d.body).toContain('## Repro steps\n\nClick it');
+    expect(d.authors).toEqual(['Dana']);
+    expect(d.body).toMatch(
+      /- **Dana** (2026-10-03): first
+ {2}
+ {2}second/,
+    );
+    expect(d.body).toContain('- **unknown** (2026-10-04): anon');
+  });
+
+  function wire(batchValue: unknown[]) {
+    const calls: Array<{ url: string; body: unknown; auth: string | undefined }> = [];
+    const impl = (async (url: string, init: RequestInit) => {
+      calls.push({
+        url,
+        body: init.body ? JSON.parse(init.body as string) : undefined,
+        auth: (init.headers as Record<string, string>).authorization,
+      });
+      if (url.includes('/wiql')) return Response.json({ workItems: [{ id: 1 }, { id: 2 }] });
+      if (url.includes('/workitemsbatch')) return Response.json({ value: batchValue });
+      return Response.json({ comments: [] });
+    }) as unknown as typeof fetch;
+    return { impl, calls };
+  }
+
+  it('sends the exact WIQL and batch requests, skips deleted items, requests ADO_SCOPE', async () => {
+    const w = wire([item(1, '2026-10-02T00:00:00Z'), null]);
+    const scopes: string[] = [];
+    const docs: WaymarkDoc[] = [];
+    const logs: string[] = [];
+    const res = await azureDevOpsConnector(source, {
+      fetch: w.impl,
+      entra: (o) => {
+        scopes.push(o.scope);
+        return { getToken: async () => 'tk' };
+      },
+    })(ctxFor(docs, logs));
+    expect(scopes).toEqual(['https://app.vssps.visualstudio.com/.default']);
+    expect(res.count).toBe(1);
+    const [wiql, batch] = w.calls;
+    expect(wiql?.url).toBe(
+      'https://dev.azure.com/contoso/My%20Shop/_apis/wit/wiql?timePrecision=true&api-version=7.1',
+    );
+    expect(Object.keys(wiql?.body as object)).toEqual(['query']);
+    expect(((wiql?.body ?? {}) as { query?: string }).query).toContain(
+      '[System.TeamProject] = @project',
+    );
+    expect(batch?.url).toBe(
+      'https://dev.azure.com/contoso/My%20Shop/_apis/wit/workitemsbatch?api-version=7.1',
+    );
+    expect(batch?.body).toEqual({
+      ids: [1, 2],
+      fields: [
+        'System.Title',
+        'System.Description',
+        'System.State',
+        'System.WorkItemType',
+        'System.CreatedBy',
+        'System.CreatedDate',
+        'System.ChangedDate',
+        'System.Tags',
+        'Microsoft.VSTS.Common.AcceptanceCriteria',
+        'Microsoft.VSTS.TCM.ReproSteps',
+      ],
+      errorPolicy: 'Omit',
+    });
+    expect(w.calls.every((c) => c.auth === 'Bearer tk')).toBe(true);
+  });
+
+  it('logs the personal-token warning once per sync', async () => {
+    vi.stubEnv('AZURE_DEVOPS_EXT_PAT', 'p');
+    const w = wire([item(1, '2026-10-02T00:00:00Z'), item(2, '2026-10-02T00:00:00Z')]);
+    const logs: string[] = [];
+    await azureDevOpsConnector(
+      { ...source, auth: 'personal' },
+      { fetch: w.impl },
+    )(ctxFor([], logs));
+    expect(logs.filter((l) => l.startsWith('warn: ado uses a personal token'))).toHaveLength(1);
   });
 });

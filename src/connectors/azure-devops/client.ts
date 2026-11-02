@@ -61,11 +61,12 @@ export function createAzureDevOpsApi(
       return (r.workItems ?? []).map((w) => w.id);
     },
     async getWorkItems(ids) {
-      const r = await call<{ value?: AdoWorkItem[] }>(
+      // errorPolicy Omit: an item deleted since the WIQL query comes back null, not as an error
+      const r = await call<{ value?: Array<AdoWorkItem | null> }>(
         `${base}/wit/workitemsbatch?api-version=7.1`,
-        { ids, fields: WORK_ITEM_FIELDS },
+        { ids, fields: WORK_ITEM_FIELDS, errorPolicy: 'Omit' },
       );
-      return (r.value ?? []).map((w) => ({ id: w.id, fields: w.fields }));
+      return (r.value ?? []).flatMap((w) => (w ? [{ id: w.id, fields: w.fields }] : []));
     },
     async comments(id) {
       const all: AdoComment[] = [];
