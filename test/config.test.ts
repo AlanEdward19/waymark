@@ -52,6 +52,26 @@ describe('loadConfig', () => {
     expect(cfg.sources[1]).toMatchObject({ include: ['pulls', 'issues'] });
   });
 
+  it('parses an azure-devops source with default include and auth', async () => {
+    await write({
+      version: 1,
+      sources: [{ id: 'ado', type: 'azure-devops', organization: 'contoso', project: 'Shop' }],
+    });
+    const cfg = await loadConfig(paths);
+    expect(cfg.sources[0]).toMatchObject({ include: ['workitems', 'pulls'], auth: 'app' });
+  });
+
+  it.each(['bad org', '-x', 'a/b'])(
+    'rejects azure-devops organization %j',
+    async (organization) => {
+      await write({
+        version: 1,
+        sources: [{ id: 'ado', type: 'azure-devops', organization, project: 'Shop' }],
+      });
+      await expect(loadConfig(paths)).rejects.toThrow('Invalid config');
+    },
+  );
+
   it('errors when missing', async () => {
     await expect(loadConfig(paths)).rejects.toThrow(
       'Waymark is not initialised. Run "waymark init" first.',

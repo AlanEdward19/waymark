@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { loadConfig, type SourceConfig } from './config.js';
+import { azureDevOpsConnector } from './connectors/azure-devops/index.js';
 import { discordConnector } from './connectors/discord.js';
 import { gitConnector } from './connectors/git.js';
 import { githubConnector } from './connectors/github/index.js';
@@ -16,6 +17,8 @@ import { commitWiki } from './store/wikigit.js';
 
 function buildConnector(source: SourceConfig, configDir: string): Connector {
   switch (source.type) {
+    case 'azure-devops':
+      return azureDevOpsConnector(source);
     case 'discord':
       return discordConnector(source);
     case 'git':

@@ -49,7 +49,17 @@ export const NotionSourceSchema = z.object({
   // the internal integration "Waymark" is the identity; there is no personal fallback
   auth: Auth.refine((a) => a === 'app', { message: "notion sources only support auth: 'app'" }),
 });
+export const AzureDevOpsSourceSchema = z.object({
+  id: SourceId,
+  type: z.literal('azure-devops'),
+  auth: Auth,
+  organization: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/),
+  project: z.string().min(1),
+  include: z.array(z.enum(['workitems', 'pulls'])).default(['workitems', 'pulls']),
+  repos: z.array(z.string().min(1)).optional(), // used by #54
+});
 export const SourceSchema = z.discriminatedUnion('type', [
+  AzureDevOpsSourceSchema,
   DiscordSourceSchema,
   GitSourceSchema,
   GithubSourceSchema,
@@ -85,6 +95,7 @@ export const ConfigSchema = z.object({
   people: z.array(PersonSchema).default([]),
 });
 export type Config = z.infer<typeof ConfigSchema>;
+export type AzureDevOpsSource = z.infer<typeof AzureDevOpsSourceSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
