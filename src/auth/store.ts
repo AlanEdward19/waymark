@@ -52,13 +52,14 @@ const PROVIDERS: Record<string, ProviderSpec> = {
   teams: { re: GUID, hint: 'an Entra object id (GUID)', normalize: (v) => v.toLowerCase() },
   discord: { re: /^\d{17,20}$/, hint: 'a Discord user id (17-20 digits)' },
   linear: { re: GUID, hint: 'a Linear user UUID', normalize: (v) => v.toLowerCase() },
-  oidc: { re: /^[^|\s]+\|[^|\s]+$/, hint: '<issuer>|<subject>' },
+  oidc: { re: /^[^|\s\p{Cc}]+\|[^|\s\p{Cc}]+$/u, hint: '<issuer>|<subject>' },
 };
 export const PROVIDER_NAMES = Object.keys(PROVIDERS);
 
 const TOKEN_RE = /^wmk_[A-Za-z0-9_-]{43}$/;
 const TOUCH_INTERVAL_MS = 60_000;
 const DAY_MS = 86_400_000;
+const MAX_EXPIRY_DAYS = 36_500;
 
 const SCHEMA = `
 CREATE TABLE users (
@@ -96,8 +97,13 @@ const SCHEMA_VERSION = 1;
 function bestEffortChmod(target: string, mode: number): void {
   try {
     fs.chmodSync(target, mode);
-  } catch {
-    // the OS may not support modes
+  } catch (err) {
+    // Windows has no POSIX modes: protection is the inherited NTFS ACL of the parent directory
+    if (process.platform !== 'win32') {
+      process.stderr.write(
+        `warn: could not set mode ${mode.toString(8)} on ${target}: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    }
   }
 }
 
@@ -110,16 +116,18 @@ export function openAuthDb(file: string): AuthDb {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.pragma('busy_timeout = 5000');
-    const version = db.pragma('user_version', { simple: true }) as number;
-    if (version > SCHEMA_VERSION) {
-      throw new Error('Auth database schema is newer than this Waymark version');
-    }
-    if (version < 1) {
-      db.transaction(() => {
+    // immediate: take the write lock first, then re-read the version, so two processes opening a
+    // fresh file cannot both run the migration
+    db.transaction(() => {
+      const version = db.pragma('user_version', { simple: true }) as number;
+      if (version > SCHEMA_VERSION) {
+        throw new Error('Auth database schema is newer than this Waymark version');
+      }
+      if (version < 1) {
         db.exec(SCHEMA);
         db.pragma(`user_version = ${SCHEMA_VERSION}`);
-      })();
-    }
+      }
+    }).immediate();
     bestEffortChmod(file, 0o600);
   } catch (err) {
     db.close();
@@ -130,6 +138,20 @@ export function openAuthDb(file: string): AuthDb {
 
 function checkName(name: string): void {
   if (!NAME_RE.test(name)) throw new Error(`invalid user name "${name}" (${NAME_HINT})`);
+}
+
+const TEXT_MAX = 200;
+
+function checkDisplay(v: string): void {
+  if (v === '' || v.length > TEXT_MAX || /\p{Cc}/u.test(v)) {
+    throw new Error(`invalid display name (1-${TEXT_MAX} characters, no control characters)`);
+  }
+}
+
+function checkLabel(v: string): void {
+  if (v.length > TEXT_MAX || /\p{Cc}/u.test(v)) {
+    throw new Error(`invalid label (up to ${TEXT_MAX} characters, no control characters)`);
+  }
 }
 
 function checkGroup(group: string): void {
@@ -182,6 +204,7 @@ export function addUser(
   now: Date = new Date(),
 ): User {
   checkName(input.name);
+  if (input.displayName !== undefined) checkDisplay(input.displayName);
   return db.transaction(() => {
     if (getUser(db, input.name)) throw new Error(`user "${input.name}" already exists`);
     db.prepare(
@@ -205,6 +228,7 @@ export function updateUser(
   return db.transaction(() => {
     requireUser(db, name);
     if (patch.displayName !== undefined) {
+      checkDisplay(patch.displayName);
       db.prepare('UPDATE users SET display_name = ? WHERE name = ?').run(patch.displayName, name);
     }
     if (patch.role !== undefined) {
@@ -325,15 +349,18 @@ export function createToken(
   let expiresAt: string | null = null;
   if (expiresDays !== undefined) {
     const days = Number(expiresDays);
-    const at = new Date(now.getTime() + days * DAY_MS);
-    if (!(Number.isInteger(days) && days >= 1) || Number.isNaN(at.getTime())) {
+    if (!(Number.isInteger(days) && days >= 1)) {
       throw new Error(`invalid expiry "${expiresDays}" (a whole number of days, at least 1)`);
     }
-    expiresAt = at.toISOString();
+    if (days > MAX_EXPIRY_DAYS) {
+      throw new Error(`invalid expiry "${expiresDays}" (at most ${MAX_EXPIRY_DAYS} days)`);
+    }
+    expiresAt = new Date(now.getTime() + days * DAY_MS).toISOString();
   }
+  if (input.label !== undefined) checkLabel(input.label);
   requireUser(db, input.user);
   const token = `wmk_${randomBytes(32).toString('base64url')}`;
-  const id = `tok_${randomBytes(4).toString('hex')}`;
+  const id = `tok_${randomBytes(8).toString('hex')}`;
   db.prepare(
     'INSERT INTO tokens (id, user, hash, label, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(id, input.user, hashToken(token), input.label ?? '', now.toISOString(), expiresAt);

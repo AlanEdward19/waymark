@@ -1,3 +1,4 @@
+import { printable } from '../memory/people.js';
 import type { WaymarkPaths } from '../paths.js';
 import {
   type AuthDb,
@@ -26,7 +27,7 @@ export interface AuthFlags {
 }
 
 function table(header: string[], rows: string[][]): string {
-  const all = [header, ...rows];
+  const all = [header, ...rows.map((r) => r.map(printable))];
   const widths = header.map((_, i) => Math.max(...all.map((r) => (r[i] ?? '').length)));
   const line = (r: string[]) =>
     r
@@ -38,6 +39,37 @@ function table(header: string[], rows: string[][]): string {
 
 function exclusive(a: boolean | undefined, b: boolean | undefined, names: string): void {
   if (a && b) throw new Error(`${names} cannot be used together`);
+}
+
+// per subcommand: how many positionals it takes and which flags apply
+const SPECS: Record<string, { args: number; flags: (keyof AuthFlags)[] }> = {
+  'user add': { args: 1, flags: ['display', 'admin', 'group'] },
+  'user list': { args: 0, flags: ['json'] },
+  'user update': { args: 1, flags: ['display', 'admin', 'member', 'group', 'disable', 'enable'] },
+  'user link': { args: 3, flags: [] },
+  'user unlink': { args: 2, flags: [] },
+  'token create': { args: 1, flags: ['label', 'expires'] },
+  'token list': { args: 0, flags: ['user', 'json'] },
+  'token revoke': { args: 1, flags: [] },
+};
+
+function checkUsage(command: string, args: string[], flags: AuthFlags): void {
+  const [sub, ...rest] = args;
+  const key = `${command} ${sub}`;
+  const spec = Object.hasOwn(SPECS, key) ? SPECS[key] : undefined;
+  if (!spec) return; // the subcommand switch reports the usage
+  const allowed = spec.flags.map((k) => `--${k}`);
+  for (const [k, v] of Object.entries(flags)) {
+    if (v === undefined || spec.flags.includes(k as keyof AuthFlags)) continue;
+    throw new Error(
+      `option --${k} does not apply to "waymark ${key}" (${allowed.length ? `allowed: ${allowed.join(', ')}` : 'it takes no options'})`,
+    );
+  }
+  if (rest.length > spec.args) {
+    throw new Error(
+      `unexpected argument "${printable(rest[spec.args] ?? '')}" for "waymark ${key}"`,
+    );
+  }
 }
 
 function userCommand(db: AuthDb, args: string[], f: AuthFlags): string {
@@ -144,6 +176,7 @@ export function runAuthCommand(
   flags: AuthFlags,
   paths: WaymarkPaths,
 ): string {
+  checkUsage(command, args, flags);
   const db = openAuthDb(paths.authDb);
   try {
     return command === 'user' ? userCommand(db, args, flags) : tokenCommand(db, args, flags);

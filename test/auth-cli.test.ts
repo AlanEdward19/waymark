@@ -102,13 +102,53 @@ describe('waymark user', () => {
   });
 });
 
+describe('waymark user/token usage checks', () => {
+  it('rejects flags that do not apply and extra positionals', async () => {
+    expect(await run('user', 'add', 'alice', '--disable')).toBe(1);
+    expect(err()).toBe(
+      'error: option --disable does not apply to "waymark user add" (allowed: --display, --admin, --group)\n',
+    );
+    await run('user', 'add', 'alice');
+    expect(await run('token', 'create', 'alice', '--user', 'x')).toBe(1);
+    expect(err()).toBe(
+      'error: option --user does not apply to "waymark token create" (allowed: --label, --expires)\n',
+    );
+    expect(await run('token', 'revoke', 'tok_x', '--json')).toBe(1);
+    expect(err()).toBe(
+      'error: option --json does not apply to "waymark token revoke" (it takes no options)\n',
+    );
+    expect(await run('user', 'add', 'alice', 'bob')).toBe(1);
+    expect(err()).toBe('error: unexpected argument "bob" for "waymark user add"\n');
+    expect(await run('user', 'list', 'extra')).toBe(1);
+    expect(err()).toBe('error: unexpected argument "extra" for "waymark user list"\n');
+  });
+
+  it('rejects an empty --display and an overlong --expires', async () => {
+    expect(await run('user', 'add', 'alice', '--display', '')).toBe(1);
+    expect(err()).toBe('error: invalid display name (1-200 characters, no control characters)\n');
+    await run('user', 'add', 'alice');
+    expect(await run('token', 'create', 'alice', '--expires', '36501')).toBe(1);
+    expect(err()).toBe('error: invalid expiry "36501" (at most 36500 days)\n');
+  });
+
+  it('strips control characters from table cells', async () => {
+    await run('user', 'add', 'alice');
+    const db = openAuthDb(path.join(tmp, 'auth', 'auth.db'));
+    db.prepare('UPDATE users SET display_name = ?').run('Al\u001b[31mice');
+    db.close();
+    await run('user', 'list');
+    expect(out()).not.toContain('\u001b');
+    expect(out()).toContain('Al[31mice');
+  });
+});
+
 describe('waymark token', () => {
   it('prints the token alone on stdout and the notice on stderr', async () => {
     await run('user', 'add', 'alice');
     expect(await run('token', 'create', 'alice', '--label', 'ci', '--expires', '30')).toBe(0);
     expect(out()).toMatch(/^wmk_[A-Za-z0-9_-]{43}\n$/);
     expect(err()).toMatch(
-      /^Token tok_[0-9a-f]{8} for alice\. Store it now: it is not shown again\.\n$/,
+      /^Token tok_[0-9a-f]{16} for alice\. Store it now: it is not shown again\.\n$/,
     );
     const token = out().trim();
 
@@ -133,7 +173,7 @@ describe('waymark token', () => {
     expect(await run('token', 'create', 'alice', '--expires', 'soon')).toBe(1);
     expect(err()).toBe('error: invalid expiry "soon" (a whole number of days, at least 1)\n');
     expect(await run('token', 'create', 'alice', '--expires', '1000000000')).toBe(1);
-    expect(err()).toBe('error: invalid expiry "1000000000" (a whole number of days, at least 1)\n');
+    expect(err()).toBe('error: invalid expiry "1000000000" (at most 36500 days)\n');
     expect(await run('token', 'create', 'ghost')).toBe(1);
     expect(err()).toBe('error: user not found: ghost\n');
   });

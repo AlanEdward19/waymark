@@ -9,7 +9,10 @@ covers the account model that exists today.
 The local CLI and the stdio MCP server run as the **owner**: no token, full access. Anyone who can
 read `$WAYMARK_HOME` is an owner. Accounts are for network access and live in
 `$WAYMARK_HOME/auth/auth.db`. Unlike `db/`, this is **not a cache**: `reindex` never touches it and
-it must be backed up.
+it must be backed up: copy the whole `auth/` directory while Waymark is stopped (the database runs
+in WAL mode, so copying `auth.db` alone while it is open can lose data), or use
+`sqlite3 auth.db ".backup <file>"`. The directory is created `0o700` and the file `0o600`; on Windows
+protection relies on the inherited NTFS ACLs, so keep `WAYMARK_HOME` in a user-private directory.
 
 ```bash
 waymark user add alice --display "Alice Souza" --group backend
@@ -23,7 +26,7 @@ waymark user list [--json]
 
 waymark token create alice --label laptop --expires 90     # prints the token on stdout, once
 waymark token list [--user alice] [--json]
-waymark token revoke tok_1a2b3c4d
+waymark token revoke tok_1a2b3c4d5e6f7a8b
 ```
 
 - Names and groups match `^[a-z0-9][a-z0-9._-]{0,62}$`. There are no e-mails or passwords.

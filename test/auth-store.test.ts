@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -141,6 +142,53 @@ describe('linked identities', () => {
   });
 });
 
+describe('hardening', () => {
+  it('rejects control characters, empty and oversized display names and labels', () => {
+    const bad = 'invalid display name (1-200 characters, no control characters)';
+    expect(() => addUser(db, { name: 'a', displayName: '' })).toThrow(bad);
+    expect(() => addUser(db, { name: 'a', displayName: 'x\u001b[2Jy' })).toThrow(bad);
+    expect(() => addUser(db, { name: 'a', displayName: 'x'.repeat(201) })).toThrow(bad);
+    addUser(db, { name: 'a', displayName: 'x'.repeat(200) });
+    expect(() => updateUser(db, 'a', { displayName: 'bad\u0007' })).toThrow(bad);
+    const badLabel = 'invalid label (up to 200 characters, no control characters)';
+    expect(() => createToken(db, { user: 'a', label: 'x\u001b]0;pwn\u0007' })).toThrow(badLabel);
+    expect(() => createToken(db, { user: 'a', label: 'x'.repeat(201) })).toThrow(badLabel);
+  });
+
+  it('rejects control characters in oidc ids', () => {
+    addUser(db, { name: 'a' });
+    expect(() => linkIdentity(db, 'a', 'oidc', 'https://idp\u001b|sub')).toThrow('invalid oidc id');
+  });
+
+  it('caps token expiry at 36500 days', () => {
+    addUser(db, { name: 'a' });
+    expect(() => createToken(db, { user: 'a', expiresDays: 36_501 })).toThrow(
+      'invalid expiry "36501" (at most 36500 days)',
+    );
+    expect(createToken(db, { user: 'a', expiresDays: 36_500 }, T0).info.expiresAt).not.toBeNull();
+  });
+
+  it('refuses a database whose schema is newer', () => {
+    const file = path.join(tmp, 'newer', 'auth.db');
+    const first = openAuthDb(file);
+    first.pragma('user_version = 99');
+    first.close();
+    expect(() => openAuthDb(file)).toThrow(
+      'Auth database schema is newer than this Waymark version',
+    );
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'creates the directory 0700 and the file 0600',
+    async () => {
+      const dir = await fs.stat(path.join(tmp, 'auth'));
+      const file = await fs.stat(path.join(tmp, 'auth', 'auth.db'));
+      expect(dir.mode & 0o777).toBe(0o700);
+      expect(file.mode & 0o777).toBe(0o600);
+    },
+  );
+});
+
 describe('tokens', () => {
   beforeEach(() => {
     addUser(db, { name: 'alice' });
@@ -149,8 +197,7 @@ describe('tokens', () => {
   it('stores only the SHA-256, never the token', async () => {
     const { token, info } = createToken(db, { user: 'alice', label: 'laptop' }, T0);
     expect(token).toMatch(/^wmk_[A-Za-z0-9_-]{43}$/);
-    expect(info.id).toMatch(/^tok_[0-9a-f]{8}$/);
-    const { createHash } = await import('node:crypto');
+    expect(info.id).toMatch(/^tok_[0-9a-f]{16}$/);
     const stored = db.prepare('SELECT hash FROM tokens').all() as { hash: string }[];
     expect(stored).toEqual([{ hash: createHash('sha256').update(token).digest('hex') }]);
     db.pragma('wal_checkpoint(TRUNCATE)');
@@ -220,23 +267,25 @@ describe('redaction', () => {
   });
 });
 
-it('a token pasted into a note body is stored redacted', async () => {
-  addUser(db, { name: 'alice' });
-  const { token } = createToken(db, { user: 'alice' });
-  const r = await writeDoc(path.join(tmp, 'wiki'), {
-    id: 'notes/note/t',
-    kind: 'note',
-    sourceId: 'notes',
-    title: 'T',
-    authors: [],
-    tags: [],
-    createdAt: T0.toISOString(),
-    updatedAt: T0.toISOString(),
-    body: `my token is ${token}`,
+describe('stored notes', () => {
+  it('a token pasted into a note body is stored redacted', async () => {
+    addUser(db, { name: 'alice' });
+    const { token } = createToken(db, { user: 'alice' });
+    const r = await writeDoc(path.join(tmp, 'wiki'), {
+      id: 'notes/note/t',
+      kind: 'note',
+      sourceId: 'notes',
+      title: 'T',
+      authors: [],
+      tags: [],
+      createdAt: T0.toISOString(),
+      updatedAt: T0.toISOString(),
+      body: `my token is ${token}`,
+    });
+    const raw = await fs.readFile(r.path, 'utf8');
+    expect(raw).toContain('[REDACTED:waymark-token]');
+    expect(raw).not.toContain(token);
   });
-  const raw = await fs.readFile(r.path, 'utf8');
-  expect(raw).toContain('[REDACTED:waymark-token]');
-  expect(raw).not.toContain(token);
 });
 
 function addAlice(): AuthDb {
