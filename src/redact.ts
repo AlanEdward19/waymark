@@ -13,6 +13,7 @@ export const RULES: readonly RedactRule[] = [
     type: 'github-token',
     pattern: /\b(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{22,255})\b/g,
   },
+  { type: 'waymark-token', pattern: /(?<![A-Za-z0-9_-])wmk_[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g },
   { type: 'anthropic-key', pattern: /\bsk-ant-[A-Za-z0-9_-]{20,}/g },
   { type: 'openai-key', pattern: /\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}/g },
   { type: 'aws-access-key', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g },

@@ -2,6 +2,7 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HOOK_HANDLERS } from './agents/index.js';
+import { runAuthCommand } from './auth/commands.js';
 import { initHome, loadConfig } from './config.js';
 import { createEmbedder, embedConfigFrom } from './embed/client.js';
 import { embedPending } from './embed/index.js';
@@ -36,6 +37,10 @@ Commands:
   llm test       Check the optional LLM setup (needs "llm" in config)
   people [--json]
                  List person names seen in the index, grouped by canonical name
+  user add|list|update|link|unlink
+                 Manage users, groups and linked identities (see docs/server.md)
+  token create|list|revoke
+                 Issue, list and revoke API tokens (see docs/server.md)
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -49,6 +54,15 @@ export async function main(argv: string[]): Promise<number> {
         source: { type: 'string', multiple: true },
         limit: { type: 'string' },
         json: { type: 'boolean' },
+        display: { type: 'string' },
+        admin: { type: 'boolean' },
+        member: { type: 'boolean' },
+        group: { type: 'string', multiple: true },
+        disable: { type: 'boolean' },
+        enable: { type: 'boolean' },
+        label: { type: 'string' },
+        expires: { type: 'string' },
+        user: { type: 'string' },
       },
       allowPositionals: true,
     });
@@ -200,6 +214,10 @@ export async function main(argv: string[]): Promise<number> {
         }
         return 0;
       }
+      case 'user':
+      case 'token':
+        process.stdout.write(runAuthCommand(command, positionals.slice(1), values, resolvePaths()));
+        return 0;
       default:
         throw new Error(`unknown command "${command}"`);
     }

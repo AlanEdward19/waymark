@@ -12,6 +12,7 @@ describe('resolvePaths', () => {
       config: path.join(home, 'config.json'),
       wiki: path.join(home, 'wiki'),
       db: path.join(home, 'db', 'waymark.db'),
+      authDb: path.join(home, 'auth', 'auth.db'),
     });
   });
 
