@@ -6,11 +6,13 @@ import type { Connector, SyncContext } from '../types.js';
 import type {
   GhIssueComment,
   GhPull,
+  GhPullFile,
   GhReview,
   GhReviewComment,
   GhUser,
   GithubApi,
 } from './api.js';
+import { PULL_FILES_MAX } from './api.js';
 import { createGithubApi } from './client.js';
 import { conversationSection, day, humanIssueComments, isBot, lf, tail } from './conversation.js';
 import { syncIssues } from './issues.js';
@@ -36,6 +38,7 @@ export function renderPull(
   reviews: GhReview[],
   reviewComments: GhReviewComment[],
   issueComments: GhIssueComment[],
+  files: GhPullFile[] = [],
 ): WaymarkDoc {
   const state = pr.merged_at ? 'merged' : pr.state;
   const author = pr.user?.login ?? 'ghost';
@@ -114,6 +117,15 @@ export function renderPull(
   const conv = conversationSection(humanConv);
   if (conv) sections.push(conv);
 
+  // must stay the last section: path-fact extraction reads the last `## Files`
+  if (files.length > 0) {
+    const lines = files.map(
+      (f) =>
+        `- ${f.filename}${f.previous_filename ? ` (renamed from ${f.previous_filename})` : ''}`,
+    );
+    sections.push(`## Files\n\n${lines.join('\n')}`);
+  }
+
   return {
     id: makeId(sourceId, 'pull_request', String(pr.number)),
     kind: 'pull_request',
@@ -144,7 +156,11 @@ async function syncPulls(
       const reviews = await api.reviews(owner, repo, pr.number);
       const comments = await api.reviewComments(owner, repo, pr.number);
       const conv = await api.issueComments(owner, repo, pr.number);
-      await ctx.emit(renderPull(ctx.sourceId, pr, reviews, comments, conv));
+      const files = await api.pullFiles(owner, repo, pr.number);
+      if (files.length >= PULL_FILES_MAX) {
+        ctx.log(`pr #${pr.number}: file list truncated at ${PULL_FILES_MAX} by GitHub`);
+      }
+      await ctx.emit(renderPull(ctx.sourceId, pr, reviews, comments, conv, files));
       count++;
       if (newest === undefined || pr.updated_at > newest) newest = pr.updated_at;
     }

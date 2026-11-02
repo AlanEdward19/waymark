@@ -35,6 +35,7 @@ function fakeApi(pages: GhIssue[][], conv: GhIssueComment[] = [], pulls: GhPull[
     },
     reviews: async () => [],
     reviewComments: async () => [],
+    pullFiles: async () => [],
     issueComments: async () => conv,
   };
   return { api, sinceArgs, calls };
