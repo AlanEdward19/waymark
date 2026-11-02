@@ -43,6 +43,21 @@ export const LinearSourceSchema = z.object({
   auth: Auth,
   team: z.string().min(1).optional(), // team key, e.g. "ENG"
 });
+export const JiraSourceSchema = z
+  .object({
+    id: SourceId,
+    type: z.literal('jira'),
+    auth: Auth,
+    site: z.string().regex(/^[a-z0-9-]+\.atlassian\.net$/), // e.g. "acme.atlassian.net"
+    project: z.string().min(1).optional(),
+    jql: z.string().min(1).optional(),
+  })
+  .refine((s) => (s.project === undefined) !== (s.jql === undefined), {
+    message: 'jira sources need exactly one of "project" or "jql"',
+  })
+  .refine((s) => s.jql === undefined || !/\border\s+by\b/i.test(s.jql), {
+    message: 'jira: remove ORDER BY from jql; Waymark orders by updated',
+  });
 export const NotionSourceSchema = z.object({
   id: SourceId,
   type: z.literal('notion'),
@@ -64,6 +79,7 @@ export const SourceSchema = z.discriminatedUnion('type', [
   GitSourceSchema,
   GithubSourceSchema,
   LinearSourceSchema,
+  JiraSourceSchema,
   NotionSourceSchema,
 ]);
 // keys come from env vars: no credentials, query or fragment in endpoint URLs
@@ -99,6 +115,7 @@ export type AzureDevOpsSource = z.infer<typeof AzureDevOpsSourceSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;
+export type JiraSource = z.infer<typeof JiraSourceSchema>;
 export type LinearSource = z.infer<typeof LinearSourceSchema>;
 export type GitSource = z.infer<typeof GitSourceSchema>;
 export type SourceConfig = z.infer<typeof SourceSchema>;

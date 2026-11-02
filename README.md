@@ -42,7 +42,7 @@ AI coding agents are only as good as the context they get. The reasons behind yo
 
 ## What you get
 
-- **One search across sources.** Commits and repo docs, GitHub PRs, reviews and issues, Linear, Notion, Discord and Azure DevOps work items today; Azure DevOps pull requests, Jira, Confluence, Slack and Teams are next ([#20](https://github.com/AlanEdward19/waymark/issues/20)).
+- **One search across sources.** Commits and repo docs, GitHub PRs, reviews and issues, Linear, Jira, Notion, Discord and Azure DevOps work items today; Azure DevOps pull requests, Confluence, Slack and Teams are next ([#20](https://github.com/AlanEdward19/waymark/issues/20)).
 - **Answers with receipts.** Every hit links back to the commit, PR, issue or page it came from.
 - **Memory for your agents.** Hooks capture Claude Code, Cursor and Hermes sessions, and a new session starts with what the last one learned. Agents can leave a handoff that exactly one later session claims.
 - **Plain files you own.** The wiki is markdown in a git repository; the SQLite index (full-text plus optional vectors) is rebuildable at any time with `waymark reindex`.
@@ -90,15 +90,16 @@ That gives Claude Code the `search`, `get_document`, `save_note` and handoff too
 
 ## Sources
 
-| Source                         | `type`         | What is ingested                                                          | Identity                       |
-| ------------------------------ | -------------- | ------------------------------------------------------------------------- | ------------------------------ |
-| Git repository                 | `git`          | Commits and markdown docs (`include: ["commits", "docs"]`)                | Local checkout                 |
-| GitHub                         | `github`       | PRs with reviews, issues with comments                                    | GitHub App                     |
-| Linear                         | `linear`       | Issues and comments                                                       | OAuth app (client credentials) |
-| Notion                         | `notion`       | Pages shared with the integration                                         | Internal integration           |
-| Discord                        | `discord`      | Messages of configured channels, one doc per channel per day              | Bot                            |
-| Azure DevOps                   | `azure-devops` | Work items and comments                                                   | Entra app identity             |
-| Jira, Confluence, Slack, Teams |                | In progress, see [#20](https://github.com/AlanEdward19/waymark/issues/20) |                                |
+| Source                   | `type`         | What is ingested                                                          | Identity                       |
+| ------------------------ | -------------- | ------------------------------------------------------------------------- | ------------------------------ |
+| Git repository           | `git`          | Commits and markdown docs (`include: ["commits", "docs"]`)                | Local checkout                 |
+| GitHub                   | `github`       | PRs with reviews, issues with comments                                    | GitHub App                     |
+| Linear                   | `linear`       | Issues and comments                                                       | OAuth app (client credentials) |
+| Jira Cloud               | `jira`         | Issues and comments (`project` or `jql`)                                  | Atlassian service account      |
+| Notion                   | `notion`       | Pages shared with the integration                                         | Internal integration           |
+| Discord                  | `discord`      | Messages of configured channels, one doc per channel per day              | Bot                            |
+| Azure DevOps             | `azure-devops` | Work items and comments                                                   | Entra app identity             |
+| Confluence, Slack, Teams |                | In progress, see [#20](https://github.com/AlanEdward19/waymark/issues/20) |                                |
 
 Secrets never go in `config.json`; they come from environment variables listed per source in [docs/identities.md](docs/identities.md). `auth: "personal"` (development only) uses a personal token where the source supports it and logs a warning.
 
