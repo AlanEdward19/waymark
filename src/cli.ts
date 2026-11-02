@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HOOK_HANDLERS } from './agents/index.js';
 import { runAuthCommand } from './auth/commands.js';
+import { runBotTest } from './bots/console.js';
 import { initHome, loadConfig } from './config.js';
 import { createEmbedder, embedConfigFrom } from './embed/client.js';
 import { embedPending } from './embed/index.js';
@@ -41,6 +42,8 @@ Commands:
                  Manage users, groups and linked identities (see docs/server.md)
   token create|list|revoke
                  Issue, list and revoke API tokens (see docs/server.md)
+  bot test <platform> --user <externalUserId> <question...>
+                 Run the chat-bot pipeline with a console adapter (see docs/bots.md)
 `;
 
 export async function main(argv: string[]): Promise<number> {
@@ -212,6 +215,19 @@ export async function main(argv: string[]): Promise<number> {
         } finally {
           db.close();
         }
+        return 0;
+      }
+      case 'bot': {
+        if (positionals[1] !== 'test') {
+          throw new Error(
+            'usage: waymark bot test <platform> --user <externalUserId> <question...>',
+          );
+        }
+        await runBotTest(resolvePaths(), {
+          platform: positionals[2] ?? '',
+          user: values.user,
+          question: positionals.slice(3).join(' '),
+        });
         return 0;
       }
       case 'user':

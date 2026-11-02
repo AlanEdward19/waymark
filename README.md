@@ -119,6 +119,7 @@ Secrets never go in `config.json`; they come from environment variables listed p
 | `waymark llm test`                       | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
 | `waymark people [--json]`                | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
 | `waymark user ...` / `waymark token ...` | Manage users, groups, linked identities and API tokens (see [docs/server.md](docs/server.md))                     |
+| `waymark bot test <platform> ...`        | Run the chat-bot pipeline with a console adapter (see [docs/bots.md](docs/bots.md))                               |
 
 </details>
 
@@ -137,7 +138,7 @@ Waymark is not a hosted SaaS, not a chatbot and not an agent framework: it suppl
 
 ## Documentation
 
-[Search and ranking](docs/search.md) · [Organisational memory](docs/memory.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [Team server: users and tokens](docs/server.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md) · [ADR-0003 team server](docs/adr/0003-team-server.md)
+[Search and ranking](docs/search.md) · [Organisational memory](docs/memory.md) · [MCP server](docs/mcp.md) · [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [Docker](docs/docker.md) · [Identities per source](docs/identities.md) · [Team server: users and tokens](docs/server.md) · [Chat bots](docs/bots.md) · [ADR-0001 stack](docs/adr/0001-stack.md) · [ADR-0002 own identity](docs/adr/0002-own-identity.md) · [ADR-0003 team server](docs/adr/0003-team-server.md)
 
 ## Contributing
 
