@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deleteDoc, openDb, reindex, upsertDoc } from '../src/index/db.js';
 import { extractPathFacts, factsByDocId, factsByPathPrefix } from '../src/memory/paths.js';
@@ -139,25 +138,54 @@ describe('path_facts index', () => {
     db.close();
   });
 
-  it('migrates v2 to v3 keeping docs; a v3 db is untouched', () => {
+  it('migrates v2 to v3 keeping docs, chunks and vectors; a v3 db is untouched', () => {
     const file = path.join(dir, 'db', 'w.db');
     const first = openDb(file);
     upsertDoc(first, doc({}), 'p');
+    first.exec(
+      `CREATE VIRTUAL TABLE vecs USING vec0(chunk_id INTEGER PRIMARY KEY, embedding float[2] distance_metric=cosine)`,
+    );
+    first.prepare('INSERT INTO vec_meta (model, dim) VALUES (?, ?)').run('m', 2);
+    first
+      .prepare('INSERT INTO chunks (chunk_id, doc_id, n, start, hash) VALUES (1, ?, 0, 0, ?)')
+      .run('src/note/1', 'h');
+    first
+      .prepare('INSERT INTO vecs (chunk_id, embedding) VALUES (?, ?)')
+      .run(1n, Buffer.from(new Float32Array([1, 0]).buffer));
     first.exec('DROP TABLE path_facts');
     first.pragma('user_version = 2');
     first.close();
     const migrated = openDb(file);
     expect(migrated.pragma('user_version', { simple: true })).toBe(3);
-    expect(migrated.prepare('SELECT count(*) AS n FROM docs').get()).toEqual({ n: 1 });
-    expect(migrated.prepare('SELECT count(*) AS n FROM path_facts').get()).toEqual({ n: 0 });
+    const n = (t: string) => migrated.prepare(`SELECT count(*) AS n FROM ${t}`).get();
+    expect(n('docs')).toEqual({ n: 1 });
+    expect(n('chunks')).toEqual({ n: 1 });
+    expect(n('vecs')).toEqual({ n: 1 });
+    expect(n('vec_meta')).toEqual({ n: 1 });
+    expect(n('path_facts')).toEqual({ n: 0 });
     upsertDoc(migrated, commit(['a.ts']), 'p');
+    const schema = (d: typeof migrated) =>
+      d.prepare('SELECT type, name, sql FROM sqlite_master ORDER BY name').all();
+    const before = schema(migrated);
     migrated.close();
     const again = openDb(file);
     expect(factsByDocId(again, 'src/commit/abc').length).toBeGreaterThan(0);
+    expect(schema(again)).toEqual(before);
+    expect(again.pragma('user_version', { simple: true })).toBe(3);
     again.close();
-    const raw = new Database(file);
-    expect(raw.pragma('user_version', { simple: true })).toBe(3);
-    raw.close();
+  });
+
+  it('stores duplicate (path, person, role) once, keeping the latest at', () => {
+    const body = [
+      '#7 · open · @dana · main ← x',
+      'd',
+      '## Review comments\n\n### `a.ts`\n\n```diff\n+a\n```\n\n- **@bob** (2026-10-02): early\n\n### `a.ts`\n\n```diff\n+a\n```\n\n- **@bob** (2026-10-09): late',
+      '## Files\n\n- a.ts',
+    ].join('\n\n');
+    const facts = extractPathFacts(doc({ kind: 'pull_request', body }));
+    expect(facts.filter((f) => f.role === 'review_commenter').map(key)).toEqual([
+      'review_commenter|bob|a.ts|2026-10-09T00:00:00Z',
+    ]);
   });
 
   it('reindex reproduces the facts after db/ is deleted', async () => {
