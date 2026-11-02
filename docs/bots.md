@@ -55,11 +55,11 @@ platform event → ignore bots / own messages / empty text
 }
 ```
 
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `unlinkedUsers` | `deny` | `deny`: only linked users get answers. `public`: unlinked users get answers from sources with no `access` setting only, and never from agent notes, handoffs or sessions |
-| `perUserPerMinute` | `6` | Questions per user in any 60 seconds (1-60) |
-| `slack`, `teams`, `discord`, `github`, `linear` | absent | One section per bot, defined by that platform's adapter. An absent section means that bot is off; no `bots` key means no bots |
+| Key                                             | Default | Meaning                                                                                                                                                                  |
+| ----------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `unlinkedUsers`                                 | `deny`  | `deny`: only linked users get answers. `public`: unlinked users get answers from sources with no `access` setting only, and never from agent notes, handoffs or sessions |
+| `perUserPerMinute`                              | `6`     | Questions per user in any 60 seconds (1-60)                                                                                                                              |
+| `slack`, `teams`, `discord`, `github`, `linear` | absent  | One section per bot, defined by that platform's adapter. An absent section means that bot is off; no `bots` key means no bots                                            |
 
 Bot secrets come from environment variables, like every other credential. A `token` or `apiKey` key
 in a bot section is rejected.
@@ -90,11 +90,11 @@ in. Self-service linking is not supported yet.
 
 What an answer may draw on depends on who asks (the source-level rules of #97):
 
-| Asker | Sees |
-| --- | --- |
-| Admin | everything |
-| Linked member | sources with no `access`, sources whose `access.groups` include one of their groups, agent notes and handoffs; no agent sessions |
-| Unlinked, under `public` | sources with no `access` only |
+| Asker                    | Sees                                                                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Admin                    | everything                                                                                                                       |
+| Linked member            | sources with no `access`, sources whose `access.groups` include one of their groups, agent notes and handoffs; no agent sessions |
+| Unlinked, under `public` | sources with no `access` only                                                                                                    |
 
 ```json
 { "id": "security-jira", "type": "jira", "project": "SEC", "access": { "groups": ["security"] } }
@@ -112,7 +112,15 @@ Every question that reaches step 3 writes one `bot.ask` line to `$WAYMARK_HOME/a
 (UTC month, append-only, `0o600`):
 
 ```json
-{ "at": "2026-11-02T10:00:00.000Z", "event": "bot.ask", "outcome": "ok", "user": "alice", "via": "bot:slack", "object": null, "detail": { "questionChars": 16, "sources": 3, "usedLlm": false } }
+{
+  "at": "2026-11-02T10:00:00.000Z",
+  "event": "bot.ask",
+  "outcome": "ok",
+  "user": "alice",
+  "via": "bot:slack",
+  "object": null,
+  "detail": { "questionChars": 16, "sources": 3, "usedLlm": false }
+}
 ```
 
 - `outcome`: `ok`, `denied` (`reason`: `unlinked` or `rate_limited`) or `error` (`reason`:
