@@ -62,7 +62,6 @@ export const PULL_FILES_MAX = 3000;
 
 export interface GhPullFile {
   filename: string;
-  status: string;
   previous_filename?: string;
 }
 

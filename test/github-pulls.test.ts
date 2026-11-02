@@ -187,9 +187,9 @@ describe('github pulls', () => {
 
   it('appends a ## Files section last, rendering renames', async () => {
     const files: GhPullFile[] = [
-      { filename: 'src/a.ts', status: 'modified' },
-      { filename: 'src/new.ts', status: 'renamed', previous_filename: 'src/old.ts' },
-      ...Array.from({ length: 100 }, (_, i) => ({ filename: `f${i}.ts`, status: 'added' })),
+      { filename: 'src/a.ts' },
+      { filename: 'src/new.ts', previous_filename: 'src/old.ts' },
+      ...Array.from({ length: 100 }, (_, i) => ({ filename: `f${i}.ts` })),
     ];
     const { api } = fakeApi([[pull(5, '2026-10-03T00:00:00Z')]], {
       files,
@@ -214,14 +214,26 @@ describe('github pulls', () => {
   });
 
   it('logs once when GitHub truncated the file list', async () => {
-    const files = Array.from({ length: 3000 }, (_, i) => ({ filename: `f${i}`, status: 'added' }));
+    const files = Array.from({ length: 3000 }, (_, i) => ({ filename: `f${i}` }));
     const { api } = fakeApi([[pull(6, '2026-10-03T00:00:00Z')]], { files });
     const logs: string[] = [];
+    const docs: WaymarkDoc[] = [];
     await githubConnector(
       source,
       api,
-    )({ sourceId: 'gh', cursor: null, log: (m) => logs.push(m), emit: async () => {} });
-    expect(logs).toEqual(['pr #6: file list truncated at 3000 by GitHub']);
+    )({
+      sourceId: 'gh',
+      cursor: null,
+      log: (m) => logs.push(m),
+      emit: async (d) => {
+        docs.push(d);
+      },
+    });
+    expect(logs).toEqual([
+      'pr #6: file list truncated at 3000 by GitHub',
+      'pr #6: file list cut to 1000 files',
+    ]);
+    expect(docs[0]?.body.match(/^- f\d+$/gm)).toHaveLength(1000);
   });
 
   it('omits empty sections and uses the placeholder description', async () => {

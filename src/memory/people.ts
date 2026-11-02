@@ -17,7 +17,7 @@ export function isEmailLike(raw: string): boolean {
   return /@.*\./.test(personKey(raw));
 }
 
-function stripAt(raw: string): string {
+export function stripAt(raw: string): string {
   return raw.startsWith('@') ? raw.slice(1) : raw;
 }
 

@@ -1,4 +1,5 @@
 import type { GithubSourceInput } from '../../config.js';
+import { demoteHeadings, MAX_PATHS } from '../../memory/paths.js';
 import { makeId, type WaymarkDoc } from '../../store/doc.js';
 import { type GithubAppDeps, githubAppTokenProvider } from '../auth/github-app.js';
 import type { TokenProvider } from '../auth/index.js';
@@ -65,7 +66,7 @@ export function renderPull(
 
   const sections = [
     `#${pr.number} · ${state} · @${author} · ${pr.base.ref} ← ${pr.head.ref}`,
-    pr.body?.trim() || '_No description._',
+    demoteHeadings(pr.body?.trim() || '_No description._'),
   ];
 
   if (humanReviews.length > 0) {
@@ -156,9 +157,14 @@ async function syncPulls(
       const reviews = await api.reviews(owner, repo, pr.number);
       const comments = await api.reviewComments(owner, repo, pr.number);
       const conv = await api.issueComments(owner, repo, pr.number);
-      const files = await api.pullFiles(owner, repo, pr.number);
+      // GitHub returns at most PULL_FILES_MAX; the doc lists at most MAX_PATHS (what the index keeps)
+      let files = await api.pullFiles(owner, repo, pr.number);
       if (files.length >= PULL_FILES_MAX) {
         ctx.log(`pr #${pr.number}: file list truncated at ${PULL_FILES_MAX} by GitHub`);
+      }
+      if (files.length > MAX_PATHS) {
+        ctx.log(`pr #${pr.number}: file list cut to ${MAX_PATHS} files`);
+        files = files.slice(0, MAX_PATHS);
       }
       await ctx.emit(renderPull(ctx.sourceId, pr, reviews, comments, conv, files));
       count++;

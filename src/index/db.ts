@@ -69,6 +69,42 @@ CREATE TABLE path_facts (
 CREATE INDEX path_facts_path ON path_facts(path);
 `;
 
+/** v2 -> v3: derive facts for the documents already indexed (body lives in docs_fts). */
+function backfillPathFacts(db: Db): void {
+  const bodies = new Map(
+    (db.prepare('SELECT id, body FROM docs_fts').all() as { id: string; body: string }[]).map(
+      (r) => [r.id, r.body],
+    ),
+  );
+  const rows = db
+    .prepare(
+      `SELECT id, kind, source_id AS sourceId, title, url, authors, tags,
+              created_at AS createdAt, updated_at AS updatedAt FROM docs`,
+    )
+    .all() as (Omit<WaymarkDoc, 'authors' | 'tags' | 'body'> & { authors: string; tags: string })[];
+  for (const r of rows) {
+    replaceFacts(db, {
+      ...r,
+      url: r.url ?? undefined,
+      authors: JSON.parse(r.authors),
+      tags: JSON.parse(r.tags),
+      body: bodies.get(r.id) ?? '',
+    });
+  }
+  process.stderr.write(
+    'path facts: existing pull requests get file lists when they are re-synced\n',
+  );
+}
+
+function replaceFacts(db: Db, doc: WaymarkDoc): void {
+  db.prepare('DELETE FROM path_facts WHERE doc_id = ?').run(doc.id);
+  const insert = db.prepare(
+    `INSERT INTO path_facts (doc_id, source_id, path, person, role, at)
+     VALUES (@docId, @sourceId, @path, @person, @role, @at)`,
+  );
+  for (const fact of extractPathFacts(doc)) insert.run(fact);
+}
+
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
@@ -86,6 +122,7 @@ export function openDb(dbPath: string): Db {
         if (version < 1) db.exec(SCHEMA_V1);
         if (version < 2) db.exec(SCHEMA_V2);
         if (version < 3) db.exec(SCHEMA_V3);
+        if (version >= 1 && version < 3) backfillPathFacts(db);
         db.pragma(`user_version = ${SCHEMA_VERSION}`);
       })();
     }
@@ -124,12 +161,7 @@ export function upsertDoc(db: Db, doc: WaymarkDoc, relPath: string): void {
       doc.body,
       doc.authors.join(' '),
     );
-    db.prepare('DELETE FROM path_facts WHERE doc_id = ?').run(doc.id);
-    const insert = db.prepare(
-      `INSERT INTO path_facts (doc_id, source_id, path, person, role, at)
-       VALUES (@docId, @sourceId, @path, @person, @role, @at)`,
-    );
-    for (const fact of extractPathFacts(doc)) insert.run(fact);
+    replaceFacts(db, doc);
   })();
 }
 

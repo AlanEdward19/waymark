@@ -1,5 +1,6 @@
 import type { Db } from '../index/db.js';
 import type { WaymarkDoc } from '../store/doc.js';
+import { stripAt } from './people.js';
 
 export type PathRole = 'commit_author' | 'pr_author' | 'reviewer' | 'review_commenter' | 'doc';
 
@@ -12,7 +13,13 @@ export interface PathFact {
   at: string;
 }
 
-const MAX_PATHS = 1000;
+export const MAX_PATHS = 1000;
+
+/**
+ * User text (PR description, commit message) is rendered with `## ` lines demoted, so a
+ * column-0 `## Files` / `## Reviews` / `## Review comments` heading is always generated.
+ */
+export const demoteHeadings = (text: string) => text.replace(/^## /gm, '### ');
 
 /** Lines of the LAST `## <heading>` section: user text can contain the same heading earlier. */
 function lastSection(body: string, heading: string): string[] {
@@ -31,8 +38,6 @@ function normalizePath(raw: string): string {
     .replace(/\\/g, '/')
     .replace(/^(\.?\/)+/, '');
 }
-
-const stripAt = (s: string) => (s.startsWith('@') ? s.slice(1) : s);
 
 function fileBullets(body: string): string[] {
   return lastSection(body, 'Files').flatMap((l) => {
@@ -75,27 +80,37 @@ class Facts {
 
 function pullFacts(doc: WaymarkDoc, out: Facts): void {
   const author = /^#\d+ · [^·]*· @([^\s·]+) ·/.exec(doc.body.split('\n')[0] ?? '')?.[1] ?? '';
-  const reviewers = new Set<string>();
+  const reviewers = new Map<string, string>(); // login -> latest review time
   for (const l of lastSection(doc.body, 'Reviews')) {
-    const m = /^- \*\*@([^*]+)\*\* (APPROVED|CHANGES_REQUESTED|COMMENTED)\b/.exec(l);
-    if (m?.[1]) reviewers.add(m[1]);
+    const m =
+      /^- \*\*@([^*]+)\*\* (APPROVED|CHANGES_REQUESTED|COMMENTED)\b(?: \((\d{4}-\d{2}-\d{2})\))?/.exec(
+        l,
+      );
+    if (!m?.[1]) continue;
+    const at = m[3] ? `${m[3]}T00:00:00Z` : doc.updatedAt;
+    const prev = reviewers.get(m[1]);
+    if (prev === undefined || prev < at) reviewers.set(m[1], at);
   }
   for (const file of fileBullets(doc.body)) {
-    out.add(file, author, 'pr_author', doc.updatedAt);
-    for (const r of reviewers) out.add(file, r, 'reviewer', doc.updatedAt);
+    if (!author.endsWith('[bot]')) out.add(file, author, 'pr_author', doc.updatedAt);
+    for (const [r, at] of reviewers) out.add(file, r, 'reviewer', at);
   }
 
   // a generated thread heading is followed by its diff fence; text that merely mimics the
   // section heading (a PR description) has no such fence
   const lines = lastSection(doc.body, 'Review comments');
   let current: string | null = null;
+  let inFence = false;
   lines.forEach((l, i) => {
+    if (l.startsWith('```')) inFence = !inFence;
+    if (inFence) return; // diff hunks are source text
     const h = /^### `(.+?)`(?: line \d+)?$/.exec(l);
     if (h?.[1]) {
       current = lines[i + 2]?.startsWith('```diff') ? h[1] : null;
       return;
     }
-    const m = /^\s*- \*\*@([^*]+)\*\* \((\d{4}-\d{2}-\d{2})\)/.exec(l);
+    // generated bullets sit at indent 0 (thread root) or 2 (reply); body lines are escaped or deeper
+    const m = /^(?: {2})?- \*\*@([^*]+)\*\* \((\d{4}-\d{2}-\d{2})\)/.exec(l);
     if (current && m?.[1] && m[2]) out.add(current, m[1], 'review_commenter', `${m[2]}T00:00:00Z`);
   });
 }

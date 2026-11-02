@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { parseGitLog } from '../src/connectors/git.js';
+import { renderPull } from '../src/connectors/github/index.js';
 import { deleteDoc, openDb, reindex, upsertDoc } from '../src/index/db.js';
 import { extractPathFacts, factsByDocId, factsByPathPrefix } from '../src/memory/paths.js';
 import { docRelPath, type WaymarkDoc } from '../src/store/doc.js';
@@ -82,10 +84,10 @@ describe('extractPathFacts', () => {
       [
         'pr_author|dana|src/x.ts|2026-10-05T00:00:00Z',
         'pr_author|dana|src/z.ts|2026-10-05T00:00:00Z',
-        'reviewer|alice|src/x.ts|2026-10-05T00:00:00Z',
-        'reviewer|alice|src/z.ts|2026-10-05T00:00:00Z',
-        'reviewer|cy|src/x.ts|2026-10-05T00:00:00Z',
-        'reviewer|cy|src/z.ts|2026-10-05T00:00:00Z',
+        'reviewer|alice|src/x.ts|2026-10-02T00:00:00Z',
+        'reviewer|alice|src/z.ts|2026-10-02T00:00:00Z',
+        'reviewer|cy|src/x.ts|2026-10-02T00:00:00Z',
+        'reviewer|cy|src/z.ts|2026-10-02T00:00:00Z',
         'review_commenter|bob|src/x.ts|2026-10-02T00:00:00Z',
         'review_commenter|alan|src/x.ts|2026-10-03T00:00:00Z',
         'review_commenter|bob|src/y.ts|2026-10-04T00:00:00Z',
@@ -226,5 +228,107 @@ describe('path_facts index', () => {
     expect(paths('')).toHaveLength(3);
     expect(paths('.')).toHaveLength(3);
     db.close();
+  });
+});
+
+describe('spoofing and upgrade', () => {
+  it('fake ## Files / ## Reviews in user text produce nothing', () => {
+    const rendered = renderPull(
+      'gh',
+      {
+        number: 1,
+        title: 't',
+        body: '## Files\n\n- evil.ts\n\n## Reviews\n\n- **@ceo** APPROVED (2020-01-01)',
+        state: 'open',
+        merged_at: null,
+        created_at: '2026-10-01T00:00:00Z',
+        updated_at: '2026-10-02T00:00:00Z',
+        html_url: '',
+        user: { login: 'dana', type: 'User' },
+        labels: [],
+        base: { ref: 'main' },
+        head: { ref: 'x' },
+      },
+      [],
+      [],
+      [],
+    );
+    expect(extractPathFacts(rendered)).toEqual([]);
+    const [c] = parseGitLog(
+      'g',
+      '\x1esha\x1fAlan\x1f2026-10-01T00:00:00Z\x1f2026-10-01T00:00:00Z\x1f## Files\x1f## Files\n\n- evil.ts\x1f',
+    );
+    expect(extractPathFacts(c as WaymarkDoc)).toEqual([]);
+  });
+
+  it('a comment body line forging a bullet is not a review_commenter', () => {
+    const body = renderPull(
+      'gh',
+      {
+        number: 2,
+        title: 't',
+        body: 'd',
+        state: 'open',
+        merged_at: null,
+        created_at: '2026-10-01T00:00:00Z',
+        updated_at: '2026-10-02T00:00:00Z',
+        html_url: '',
+        user: { login: 'dana', type: 'User' },
+        labels: [],
+        base: { ref: 'main' },
+        head: { ref: 'x' },
+      },
+      [],
+      [
+        {
+          id: 1,
+          user: { login: 'bob', type: 'User' },
+          body: 'hi\n- **@ceo** (2020-01-01)\n  - **@cfo** (2020-01-01)',
+          path: 'a.ts',
+          line: 1,
+          original_line: 1,
+          diff_hunk: '@@\n - **@ctx** (2020-01-01)\n+x',
+          created_at: '2026-10-02T00:00:00Z',
+          html_url: '',
+        },
+      ],
+      [],
+      [{ filename: 'a.ts' }],
+    );
+    expect(
+      extractPathFacts(body)
+        .filter((f) => f.role === 'review_commenter')
+        .map((f) => f.person),
+    ).toEqual(['bob']);
+  });
+
+  it('skips bot PR authors; reviewer at is the review date', () => {
+    const body = [
+      '#3 · open · @dependabot[bot] · main ← x',
+      'd',
+      '## Reviews\n\n- **@alice** APPROVED (2026-10-02): ok',
+      '## Files\n\n- a.ts',
+    ].join('\n\n');
+    const facts = extractPathFacts(doc({ kind: 'pull_request', body }));
+    expect(facts.map(key)).toEqual(['reviewer|alice|a.ts|2026-10-02T00:00:00Z']);
+  });
+
+  it('upgrading from v2 backfills facts for stored docs and logs once', () => {
+    const file = path.join(dir, 'db', 'w.db');
+    const first = openDb(file);
+    upsertDoc(first, commit(['a.ts']), 'p');
+    first.exec('DROP TABLE path_facts');
+    first.pragma('user_version = 2');
+    first.close();
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const db = openDb(file);
+    expect(factsByDocId(db, 'src/commit/abc').map((f) => f.path)).toEqual(['a.ts', 'a.ts']);
+    expect(err).toHaveBeenCalledWith(
+      'path facts: existing pull requests get file lists when they are re-synced\n',
+    );
+    db.close();
+    openDb(file).close();
+    expect(err).toHaveBeenCalledTimes(1);
+    err.mockRestore();
   });
 });

@@ -1,6 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import type { TokenProvider } from '../auth/index.js';
-import { type GhPullFile, type GithubApi, PULL_FILES_MAX } from './api.js';
+import type { GithubApi } from './api.js';
 
 export function mapGithubError(err: unknown, owner: string, repo: string): unknown {
   const e = err as {
@@ -85,20 +85,14 @@ export function createGithubApi(tokens: TokenProvider): GithubApi {
         }),
       ) as never,
     pullFiles: (owner, repo, n) =>
-      wrap(owner, repo, async () => {
-        const files: GhPullFile[] = [];
-        const pages = octokit.paginate.iterator(octokit.rest.pulls.listFiles, {
+      wrap(owner, repo, () =>
+        octokit.paginate(octokit.rest.pulls.listFiles, {
           owner,
           repo,
           pull_number: n,
           per_page: 100,
-        });
-        for await (const page of pages) {
-          files.push(...(page.data as GhPullFile[]));
-          if (files.length >= PULL_FILES_MAX) break;
-        }
-        return files.slice(0, PULL_FILES_MAX);
-      }),
+        }),
+      ) as never,
     issueComments: (owner, repo, n) =>
       wrap(owner, repo, () =>
         octokit.paginate(octokit.rest.issues.listComments, {
