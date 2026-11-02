@@ -77,7 +77,7 @@ describe('azure-devops work items', () => {
     const cursor = first.res.cursor;
     expect(JSON.parse(cursor as string)).toEqual({ workitems: '2026-10-02T00:00:00.123Z' });
     await run(f.api, cursor);
-    expect(f.queries[1]).toContain("[System.ChangedDate] > '2026-10-02T00:00:00.123Z'");
+    expect(f.queries[1]).toContain("[System.ChangedDate] >= '2026-10-02T00:00:00.123Z'");
   });
 
   it('splits 450 ids into 200/200/50 batches', async () => {
@@ -128,7 +128,7 @@ describe('azure-devops work items', () => {
     };
     const { logs } = await run(api);
     expect(logs).toContain(
-      'azure-devops: more than 20000 changed work items; run sync again to continue',
+      'azure-devops: 20000 changed work items returned (the maximum); run sync again to continue',
     );
     const stub = await azureDevOpsConnector(
       { ...source, include: ['workitems', 'pulls'] },
@@ -168,7 +168,7 @@ describe('azure-devops client', () => {
     const all = await api.comments(5);
     expect(all.map((c) => c.text)).toEqual(['a', 'b']);
     expect(r.calls[0]?.url).toBe(
-      'https://dev.azure.com/contoso/My%20Shop/_apis/wit/workItems/5/comments?api-version=7.1-preview.4',
+      'https://dev.azure.com/contoso/My%20Shop/_apis/wit/workItems/5/comments?api-version=7.1-preview.4&order=asc',
     );
     expect(r.calls[1]?.url).toContain('&continuationToken=tok%2F1');
   });
@@ -187,7 +187,7 @@ describe('azure-devops client', () => {
       readDoc: async () => null,
       listIds: () => [],
     });
-    expect(r.calls[0]?.url).toContain('/wit/wiql?timePrecision=true&api-version=7.1');
+    expect(r.calls[0]?.url).toContain('/wit/wiql?timePrecision=true&$top=20000&api-version=7.1');
     return ((r.calls[0]?.init.headers ?? {}) as Record<string, string>).authorization;
   }
 
@@ -301,7 +301,7 @@ describe('azure-devops hardening', () => {
     expect(res.count).toBe(1);
     const [wiql, batch] = w.calls;
     expect(wiql?.url).toBe(
-      'https://dev.azure.com/contoso/My%20Shop/_apis/wit/wiql?timePrecision=true&api-version=7.1',
+      'https://dev.azure.com/contoso/My%20Shop/_apis/wit/wiql?timePrecision=true&$top=20000&api-version=7.1',
     );
     expect(Object.keys(wiql?.body as object)).toEqual(['query']);
     expect(((wiql?.body ?? {}) as { query?: string }).query).toContain(
@@ -321,6 +321,7 @@ describe('azure-devops hardening', () => {
         'System.CreatedDate',
         'System.ChangedDate',
         'System.Tags',
+        'System.CommentCount',
         'Microsoft.VSTS.Common.AcceptanceCriteria',
         'Microsoft.VSTS.TCM.ReproSteps',
       ],
@@ -338,5 +339,58 @@ describe('azure-devops hardening', () => {
       { fetch: w.impl },
     )(ctxFor([], logs));
     expect(logs.filter((l) => l.startsWith('warn: ado uses a personal token'))).toHaveLength(1);
+  });
+});
+
+describe('azure-devops comments, cursor and errors', () => {
+  const ctx = (cursor: string | null, logs: string[] = []) => ({
+    sourceId: 'ado',
+    cursor,
+    log: (m: string) => logs.push(m),
+    emit: async () => {},
+    remove: async () => {},
+    readDoc: async () => null,
+    listIds: () => [],
+  });
+
+  it('skips the comments call when CommentCount is 0, fetches otherwise', async () => {
+    const asked: number[] = [];
+    const items = [
+      item(1, '2026-10-02T00:00:00Z', { 'System.CommentCount': 0 }),
+      item(2, '2026-10-02T00:00:00Z', { 'System.CommentCount': 2 }),
+    ];
+    const api: AzureDevOpsApi = {
+      queryIds: async () => [1, 2],
+      getWorkItems: async () => items,
+      comments: async (id) => {
+        asked.push(id);
+        return [];
+      },
+    };
+    await azureDevOpsConnector(source, { api })(ctx(null));
+    expect(asked).toEqual([2]);
+  });
+
+  it('treats an unparseable stored cursor as a first run', async () => {
+    const f = fakeApi([item(1, '2026-10-02T00:00:00Z')]);
+    await azureDevOpsConnector(source, { api: f.api })(
+      ctx(JSON.stringify({ workitems: 'garbage' })),
+    );
+    expect(f.queries[0]).not.toContain('ChangedDate] >');
+  });
+
+  it.each([401, 403])('maps %i to an access hint', async (status) => {
+    const impl = (async () => new Response('{}', { status })) as unknown as typeof fetch;
+    const api = createAzureDevOpsApi('contoso', 'P', async () => 'Bearer t', impl);
+    await expect(api.queryIds('q')).rejects.toThrow(`dev.azure.com responded ${status}`);
+    await expect(api.queryIds('q')).rejects.toThrow(
+      "check the identity's Boards read access: docs/identities.md#azure-devops",
+    );
+  });
+
+  it('does not rewrite other errors', async () => {
+    const impl = (async () => new Response('{}', { status: 500 })) as unknown as typeof fetch;
+    const api = createAzureDevOpsApi('contoso', 'P', async () => 'Bearer t', impl);
+    await expect(api.queryIds('q')).rejects.not.toThrow(/Boards read access/);
   });
 });

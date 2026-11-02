@@ -5,7 +5,8 @@ import type { SyncContext } from '../types.js';
 import type { AdoComment, AdoIdentity, AdoWorkItem, AzureDevOpsApi } from './api.js';
 
 const BATCH = 200;
-const WIQL_LIMIT = 20_000;
+// WIQL rejects queries over 20000 results unless $top is set (see client.ts)
+export const WIQL_LIMIT = 20_000;
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 // only the display name: uniqueName is an e-mail address
@@ -71,18 +72,22 @@ export async function syncWorkItems(
   project: string,
   since: string | undefined,
 ): Promise<{ cursor: string | undefined; count: number }> {
-  const where = since === undefined ? '' : ` AND [System.ChangedDate] > '${since}'`;
+  const where = since === undefined ? '' : ` AND [System.ChangedDate] >= '${since}'`;
   const ids = await api.queryIds(
     `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project${where} ORDER BY [System.ChangedDate] ASC`,
   );
-  if (ids.length >= WIQL_LIMIT) {
-    ctx.log(`azure-devops: more than ${WIQL_LIMIT} changed work items; run sync again to continue`);
+  if (ids.length === WIQL_LIMIT) {
+    ctx.log(
+      `azure-devops: ${WIQL_LIMIT} changed work items returned (the maximum); run sync again to continue`,
+    );
   }
   let newest = since;
   let count = 0;
   for (let i = 0; i < ids.length; i += BATCH) {
     for (const item of await api.getWorkItems(ids.slice(i, i + BATCH))) {
-      const comments = await api.comments(item.id);
+      // CommentCount 0: skip the GET; a missing field falls back to fetching
+      const comments =
+        Number(item.fields['System.CommentCount']) === 0 ? [] : await api.comments(item.id);
       await ctx.emit(renderWorkItem(ctx.sourceId, organization, project, item, comments));
       count++;
       const changed = str(item.fields['System.ChangedDate']);

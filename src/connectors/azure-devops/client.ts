@@ -11,6 +11,7 @@ export const WORK_ITEM_FIELDS = [
   'System.CreatedDate',
   'System.ChangedDate',
   'System.Tags',
+  'System.CommentCount',
   'Microsoft.VSTS.Common.AcceptanceCriteria',
   'Microsoft.VSTS.TCM.ReproSteps',
 ];
@@ -41,21 +42,31 @@ export function createAzureDevOpsApi(
   fetchImpl?: typeof fetch,
 ): AzureDevOpsApi {
   const base = `https://dev.azure.com/${organization}/${encodeURIComponent(project)}/_apis`;
-  const call = async <T>(url: string, body?: unknown): Promise<T> =>
-    fetchJson<T>(url, {
-      method: body === undefined ? 'GET' : 'POST',
-      headers: {
-        authorization: await authorization(),
-        accept: 'application/json',
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      ...(fetchImpl ? { fetchImpl } : {}),
-    });
+  const call = async <T>(url: string, body?: unknown): Promise<T> => {
+    try {
+      return await fetchJson<T>(url, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: {
+          authorization: await authorization(),
+          accept: 'application/json',
+          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    } catch (err) {
+      if (err instanceof Error && / responded (401|403)\b/.test(err.message)) {
+        throw new Error(
+          `${err.message}; check the identity's Boards read access: docs/identities.md#azure-devops`,
+        );
+      }
+      throw err;
+    }
+  };
   return {
     async queryIds(query) {
       const r = await call<{ workItems?: Array<{ id: number }> }>(
-        `${base}/wit/wiql?timePrecision=true&api-version=7.1`,
+        `${base}/wit/wiql?timePrecision=true&$top=20000&api-version=7.1`,
         { query },
       );
       return (r.workItems ?? []).map((w) => w.id);
@@ -74,7 +85,7 @@ export function createAzureDevOpsApi(
       do {
         const q = token === undefined ? '' : `&continuationToken=${encodeURIComponent(token)}`;
         const r = await call<{ comments?: AdoComment[]; continuationToken?: string }>(
-          `${base}/wit/workItems/${id}/comments?api-version=7.1-preview.4${q}`,
+          `${base}/wit/workItems/${id}/comments?api-version=7.1-preview.4&order=asc${q}`,
         );
         all.push(...(r.comments ?? []));
         token = r.continuationToken || undefined;

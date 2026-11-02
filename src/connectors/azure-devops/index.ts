@@ -49,6 +49,10 @@ export function azureDevOpsConnector(
       api = createAzureDevOpsApi(source.organization, source.project, authorization, deps.fetch);
     }
     const cursor = parseCursor(ctx.cursor);
+    // an unparseable stored cursor means a first run
+    if (typeof cursor.workitems !== 'string' || Number.isNaN(Date.parse(cursor.workitems))) {
+      delete cursor.workitems;
+    }
     let count = 0;
 
     if (source.include.includes('workitems')) {
