@@ -2,12 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
+import { extractPathFacts } from '../memory/paths.js';
 import { docRelPath, type WaymarkDoc } from '../store/doc.js';
 import { listDocs } from '../store/markdown.js';
 
 export type Db = Database.Database;
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const SCHEMA_V1 = `
 CREATE TABLE docs (
@@ -54,6 +55,56 @@ CREATE TABLE chunks (
 CREATE TABLE vec_meta (model TEXT NOT NULL, dim INTEGER NOT NULL);
 `;
 
+// v3: which repository paths a document is about, and who touched them (src/memory/paths.ts)
+const SCHEMA_V3 = `
+CREATE TABLE path_facts (
+  doc_id    TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  path      TEXT NOT NULL,
+  person    TEXT NOT NULL,
+  role      TEXT NOT NULL,
+  at        TEXT NOT NULL,
+  PRIMARY KEY (doc_id, path, person, role)
+);
+CREATE INDEX path_facts_path ON path_facts(path);
+`;
+
+/** v2 -> v3: derive facts for the documents already indexed (body lives in docs_fts). */
+function backfillPathFacts(db: Db): void {
+  const bodies = new Map(
+    (db.prepare('SELECT id, body FROM docs_fts').all() as { id: string; body: string }[]).map(
+      (r) => [r.id, r.body],
+    ),
+  );
+  const rows = db
+    .prepare(
+      `SELECT id, kind, source_id AS sourceId, title, url, authors, tags,
+              created_at AS createdAt, updated_at AS updatedAt FROM docs`,
+    )
+    .all() as (Omit<WaymarkDoc, 'authors' | 'tags' | 'body'> & { authors: string; tags: string })[];
+  for (const r of rows) {
+    replaceFacts(db, {
+      ...r,
+      url: r.url ?? undefined,
+      authors: JSON.parse(r.authors),
+      tags: JSON.parse(r.tags),
+      body: bodies.get(r.id) ?? '',
+    });
+  }
+  process.stderr.write(
+    'path facts: existing pull requests get file lists when they are re-synced\n',
+  );
+}
+
+function replaceFacts(db: Db, doc: WaymarkDoc): void {
+  db.prepare('DELETE FROM path_facts WHERE doc_id = ?').run(doc.id);
+  const insert = db.prepare(
+    `INSERT INTO path_facts (doc_id, source_id, path, person, role, at)
+     VALUES (@docId, @sourceId, @path, @person, @role, @at)`,
+  );
+  for (const fact of extractPathFacts(doc)) insert.run(fact);
+}
+
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
@@ -70,6 +121,8 @@ export function openDb(dbPath: string): Db {
       db.transaction(() => {
         if (version < 1) db.exec(SCHEMA_V1);
         if (version < 2) db.exec(SCHEMA_V2);
+        if (version < 3) db.exec(SCHEMA_V3);
+        if (version >= 1 && version < 3) backfillPathFacts(db);
         db.pragma(`user_version = ${SCHEMA_VERSION}`);
       })();
     }
@@ -108,6 +161,7 @@ export function upsertDoc(db: Db, doc: WaymarkDoc, relPath: string): void {
       doc.body,
       doc.authors.join(' '),
     );
+    replaceFacts(db, doc);
   })();
 }
 
@@ -115,6 +169,7 @@ export function deleteDoc(db: Db, id: string): void {
   db.transaction(() => {
     db.prepare('DELETE FROM docs WHERE id = ?').run(id);
     db.prepare('DELETE FROM docs_fts WHERE id = ?').run(id);
+    db.prepare('DELETE FROM path_facts WHERE doc_id = ?').run(id);
   })();
 }
 
@@ -138,7 +193,7 @@ export async function reindex(db: Db, wikiDir: string): Promise<{ count: number 
   const docs: WaymarkDoc[] = [];
   for await (const { doc } of listDocs(wikiDir)) docs.push(doc);
   db.transaction(() => {
-    db.exec('DELETE FROM docs; DELETE FROM docs_fts;');
+    db.exec('DELETE FROM docs; DELETE FROM docs_fts; DELETE FROM path_facts;');
     for (const doc of docs) upsertDoc(db, doc, docRelPath(doc.id));
   })();
   return { count: docs.length };

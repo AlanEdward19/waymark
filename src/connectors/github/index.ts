@@ -1,4 +1,5 @@
 import type { GithubSourceInput } from '../../config.js';
+import { demoteHeadings, MAX_PATHS } from '../../memory/paths.js';
 import { makeId, type WaymarkDoc } from '../../store/doc.js';
 import { type GithubAppDeps, githubAppTokenProvider } from '../auth/github-app.js';
 import type { TokenProvider } from '../auth/index.js';
@@ -6,11 +7,13 @@ import type { Connector, SyncContext } from '../types.js';
 import type {
   GhIssueComment,
   GhPull,
+  GhPullFile,
   GhReview,
   GhReviewComment,
   GhUser,
   GithubApi,
 } from './api.js';
+import { PULL_FILES_MAX } from './api.js';
 import { createGithubApi } from './client.js';
 import { conversationSection, day, humanIssueComments, isBot, lf, tail } from './conversation.js';
 import { syncIssues } from './issues.js';
@@ -30,12 +33,16 @@ function parseCursor(raw: string | null): Cursor {
   }
 }
 
+// file names come from the PR author: a line break would let them forge generated sections
+const oneLine = (s: string) => s.replace(/[\r\n\u2028\u2029]+/g, ' ');
+
 export function renderPull(
   sourceId: string,
   pr: GhPull,
   reviews: GhReview[],
   reviewComments: GhReviewComment[],
   issueComments: GhIssueComment[],
+  files: GhPullFile[] = [],
 ): WaymarkDoc {
   const state = pr.merged_at ? 'merged' : pr.state;
   const author = pr.user?.login ?? 'ghost';
@@ -62,7 +69,7 @@ export function renderPull(
 
   const sections = [
     `#${pr.number} · ${state} · @${author} · ${pr.base.ref} ← ${pr.head.ref}`,
-    pr.body?.trim() || '_No description._',
+    demoteHeadings(pr.body?.trim() || '_No description._'),
   ];
 
   if (humanReviews.length > 0) {
@@ -98,7 +105,7 @@ export function renderPull(
       `${lead}- **@${login(c.user)}** (${day(c.created_at)})${tail(c.body, pad)}`;
     const threads = roots.map((root) => {
       const n = root.line ?? root.original_line;
-      const heading = `### \`${root.path}\`${n === null ? '' : ` line ${n}`}`;
+      const heading = `### \`${oneLine(root.path)}\`${n === null ? '' : ` line ${n}`}`;
       const hunk = root.diff_hunk.split('\n').slice(-6).join('\n');
       const lines = [
         entry(root, '', '  '),
@@ -113,6 +120,15 @@ export function renderPull(
 
   const conv = conversationSection(humanConv);
   if (conv) sections.push(conv);
+
+  // must stay the last section: path-fact extraction reads the last `## Files`
+  if (files.length > 0) {
+    const lines = files.map(
+      (f) =>
+        `- ${oneLine(f.filename)}${f.previous_filename ? ` (renamed from ${oneLine(f.previous_filename)})` : ''}`,
+    );
+    sections.push(`## Files\n\n${lines.join('\n')}`);
+  }
 
   return {
     id: makeId(sourceId, 'pull_request', String(pr.number)),
@@ -144,7 +160,16 @@ async function syncPulls(
       const reviews = await api.reviews(owner, repo, pr.number);
       const comments = await api.reviewComments(owner, repo, pr.number);
       const conv = await api.issueComments(owner, repo, pr.number);
-      await ctx.emit(renderPull(ctx.sourceId, pr, reviews, comments, conv));
+      // GitHub returns at most PULL_FILES_MAX; the doc lists at most MAX_PATHS (what the index keeps)
+      let files = await api.pullFiles(owner, repo, pr.number);
+      if (files.length >= PULL_FILES_MAX) {
+        ctx.log(`pr #${pr.number}: file list truncated at ${PULL_FILES_MAX} by GitHub`);
+      }
+      if (files.length > MAX_PATHS) {
+        ctx.log(`pr #${pr.number}: file list cut to ${MAX_PATHS} files`);
+        files = files.slice(0, MAX_PATHS);
+      }
+      await ctx.emit(renderPull(ctx.sourceId, pr, reviews, comments, conv, files));
       count++;
       if (newest === undefined || pr.updated_at > newest) newest = pr.updated_at;
     }

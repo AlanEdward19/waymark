@@ -191,7 +191,7 @@ describe('#48 vector index', () => {
     const file = path.join(dir, 'db.sqlite');
     const first = openDb(file);
     put(first, doc('1', 'kept', 'body'));
-    first.exec('DROP TABLE chunks; DROP TABLE vec_meta;');
+    first.exec('DROP TABLE chunks; DROP TABLE vec_meta; DROP TABLE path_facts;');
     first.pragma('user_version = 1');
     first.close();
     const raw = new Database(file);
@@ -199,7 +199,7 @@ describe('#48 vector index', () => {
     raw.close();
     const d = openDb(file);
     open.push(d);
-    expect(d.pragma('user_version', { simple: true })).toBe(2);
+    expect(d.pragma('user_version', { simple: true })).toBe(3);
     expect(d.prepare('SELECT title FROM docs').get()).toEqual({ title: 'kept' });
     expect(d.prepare('SELECT count(*) AS n FROM chunks').get()).toEqual({ n: 0 });
   });

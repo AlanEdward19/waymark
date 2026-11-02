@@ -6,7 +6,12 @@ export const isBot = (u: GhUser | null) =>
 export const day = (iso: string) => iso.slice(0, 10);
 // GitHub bodies often use CRLF; a lone CR is a line break in CommonMark
 export const lf = (text: string) => text.replace(/\r\n?/g, '\n');
-export const indent = (text: string, pad: string) => lf(text).trim().replace(/\n/g, `\n${pad}`);
+// a body line that looks like a generated `- **@login** (date)` bullet is escaped so it cannot forge one
+export const indent = (text: string, pad: string) =>
+  lf(text)
+    .trim()
+    .replace(/^- \*\*@/gm, '\\- **@')
+    .replace(/\n/g, `\n${pad}`);
 /** `: <body>` with continuation lines indented, or '' when the body is empty. */
 export const tail = (text: string | null, pad: string) => {
   const body = indent(text ?? '', pad);
