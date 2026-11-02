@@ -73,6 +73,22 @@ First match wins:
 Waymark requests the scope `https://app.vssps.visualstudio.com/.default`. Tokens are cached in
 memory and renewed 5 minutes before they expire.
 
+### Source config
+
+```json
+{ "id": "waymark-ado", "type": "azure-devops", "organization": "contoso", "project": "Shop" }
+```
+
+`include` is `["workitems", "pulls"]` by default (pull requests are not implemented yet). Work
+items need read access to Boards (scope `vso.work`): the identity's access level is **Basic** and
+its group gets read-only permissions on the project (View work items in this node). Waymark stores
+display names only, never e-mail addresses.
+
+### Local testing with a personal token
+
+`"auth": "personal"` reads `AZURE_DEVOPS_EXT_PAT` or `AZURE_DEVOPS_PAT` (sent as Basic auth), else
+`AZURE_DEVOPS_TOKEN` (sent as Bearer), and logs `warn: ... uses a personal token`. Development only.
+
 ### Rotate
 
 Upload a new certificate (or create a new secret), update the PEM file or env var, then delete the
