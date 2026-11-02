@@ -97,7 +97,7 @@ const cases: Array<[string, AdfNode | null | undefined, string]> = [
         },
       ],
     }),
-    'A | B\n1 | 2',
+    '| A | B |\n| --- | --- |\n| 1 | 2 |',
   ],
   ['null child', { type: 'doc', content: [null, p(t('ok'))] } as unknown as AdfNode, 'ok'],
   [
@@ -106,7 +106,15 @@ const cases: Array<[string, AdfNode | null | undefined, string]> = [
       type: 'table',
       content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [p(t('a|b'))] }] }],
     }),
-    'a\\|b',
+    '| a\\|b |\n| --- |',
+  ],
+  ['status', doc(p({ type: 'status', attrs: { text: 'IN REVIEW', color: 'blue' } })), 'IN REVIEW'],
+  ['date', doc(p({ type: 'date', attrs: { timestamp: '1760000000000' } })), '2025-10-09'],
+  ['non-array content', { type: 'doc', content: 'oops' } as unknown as AdfNode, ''],
+  [
+    'codeBlock with backticks gets a longer fence',
+    doc({ type: 'codeBlock', content: [t('a ``` b')] }),
+    '````\na ``` b\n````',
   ],
   ['unknown node recurses', doc({ type: 'mystery', content: [p(t('kept'))] }), 'kept'],
 ];

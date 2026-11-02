@@ -8,7 +8,8 @@ export interface AdfNode {
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
-const kids = (n: AdfNode) => n.content ?? [];
+const kids = (n: AdfNode | null | undefined): AdfNode[] =>
+  Array.isArray(n?.content) ? (n?.content as AdfNode[]) : [];
 const inline = (n: AdfNode) => kids(n).map(render).join('');
 const blocks = (n: AdfNode) => kids(n).map(render).join('\n\n');
 const pad = (s: string, p: string) => s.replace(/\n/g, `\n${p}`);
@@ -34,9 +35,9 @@ function list(n: AdfNode, marker: (i: number) => string): string {
 }
 
 function table(n: AdfNode): string {
-  return kids(n)
-    .map((row) =>
-      kids(row)
+  const rows = kids(n).map(
+    (row) =>
+      `| ${kids(row)
         .map((cell) =>
           kids(cell)
             .map(render)
@@ -45,9 +46,10 @@ function table(n: AdfNode): string {
             .trim()
             .replace(/\|/g, '\\|'),
         )
-        .join(' | '),
-    )
-    .join('\n');
+        .join(' | ')} |`,
+  );
+  if (rows.length > 0) rows.splice(1, 0, `|${' --- |'.repeat(kids(kids(n)[0]).length)}`);
+  return rows.join('\n');
 }
 
 function render(n: AdfNode | null | undefined): string {
@@ -63,14 +65,23 @@ function render(n: AdfNode | null | undefined): string {
       return list(n, () => '- ');
     case 'orderedList':
       return list(n, (i) => `${i + 1}. `);
-    case 'codeBlock':
-      return `\`\`\`${str(n.attrs?.language)}\n${inline(n)}\n\`\`\``;
+    case 'codeBlock': {
+      const code = inline(n);
+      const longest = Math.max(0, ...[...code.matchAll(/`+/g)].map((m) => m[0].length));
+      const fence = '`'.repeat(Math.max(3, longest + 1));
+      return `${fence}${str(n.attrs?.language)}\n${code}\n${fence}`;
+    }
     case 'blockquote':
       return `> ${pad(blocks(n), '> ')}`;
     case 'hardBreak':
       return '\n';
     case 'rule':
       return '---';
+    case 'date': {
+      const ms = Number(n.attrs?.timestamp);
+      return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : '';
+    }
+    case 'status':
     case 'mention':
     case 'emoji':
       return str(n.attrs?.text);

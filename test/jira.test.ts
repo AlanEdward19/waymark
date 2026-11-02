@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { JiraSource } from '../src/config.js';
 import { ConfigSchema } from '../src/config.js';
 import { jiraConnector } from '../src/connectors/jira/index.js';
 import type { WaymarkDoc } from '../src/store/doc.js';
@@ -37,7 +38,8 @@ function fakeFetch(responses: unknown[]) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const impl = (async (url: string, init: RequestInit) => {
     calls.push({ url, init });
-    return new Response(JSON.stringify(responses.shift()), { status: 200 });
+    const next = responses.shift();
+    return next instanceof Response ? next : new Response(JSON.stringify(next), { status: 200 });
   }) as unknown as typeof fetch;
   return { impl, calls };
 }
@@ -50,13 +52,12 @@ const source = {
   project: 'ENG',
 };
 
-async function run(responses: unknown[], cursor: string | null = null, src = source) {
+async function run(responses: unknown[], cursor: string | null = null, src: JiraSource = source) {
   const f = fakeFetch(responses);
   const docs: WaymarkDoc[] = [];
   const logs: string[] = [];
   const result = await jiraConnector(src, {
     fetch: f.impl,
-    env: { JIRA_EMAIL: EMAIL, JIRA_API_TOKEN: PASSWORD },
   })({
     sourceId: 'jira',
     cursor,
@@ -73,7 +74,7 @@ async function run(responses: unknown[], cursor: string | null = null, src = sou
 
 const authOf = (c?: { init: RequestInit }) =>
   (c?.init.headers as Record<string, string> | undefined)?.authorization;
-const body = (c: { init: RequestInit }) => JSON.parse(c.init.body as string);
+const body = (c?: { init: RequestInit }) => JSON.parse(c?.init.body as string);
 
 describe('jira connector', () => {
   beforeEach(() => {
@@ -96,9 +97,9 @@ describe('jira connector', () => {
     ]);
     expect(r.calls).toHaveLength(2);
     expect(r.calls[0]?.url).toBe('https://acme.atlassian.net/rest/api/3/search/jql');
-    expect(body(r.calls[0] as never).nextPageToken).toBeUndefined();
-    expect(body(r.calls[1] as never).nextPageToken).toBe('tok');
-    expect(body(r.calls[0] as never).jql).toBe('(project = "ENG") ORDER BY updated ASC');
+    expect(body(r.calls[0]).nextPageToken).toBeUndefined();
+    expect(body(r.calls[1]).nextPageToken).toBe('tok');
+    expect(body(r.calls[0]).jql).toBe('(project = "ENG") ORDER BY updated ASC');
     expect(r.result).toEqual({ cursor: '2026-10-05T10:00:00.000Z', count: 2 });
     const d = r.docs[1] as WaymarkDoc;
     expect(d.url).toBe('https://acme.atlassian.net/browse/ENG-2');
@@ -112,7 +113,7 @@ describe('jira connector', () => {
 
   it('sends maxResults and the exact field list', async () => {
     const r = await run([{ issues: [], isLast: true }]);
-    const b = body(r.calls[0] as never);
+    const b = body(r.calls[0]);
     expect(b.maxResults).toBe(100);
     expect(b.fields).toEqual([
       'summary',
@@ -146,7 +147,7 @@ describe('jira connector', () => {
       project: 'E"N\\G',
     });
     expect((r.docs[0] as WaymarkDoc).body).toContain('_No description._');
-    expect(body(r.calls[0] as never).jql).toBe('(project = "E\\"N\\\\G") ORDER BY updated ASC');
+    expect(body(r.calls[0]).jql).toBe('(project = "E\\"N\\\\G") ORDER BY updated ASC');
   });
 
   it('an empty comment page ends the comment loop', async () => {
@@ -160,10 +161,50 @@ describe('jira connector', () => {
 
   it('second run subtracts 24h from the cursor in the JQL', async () => {
     const r = await run([{ issues: [], isLast: true }], '2026-10-05T10:30:45.000Z');
-    expect(body(r.calls[0] as never).jql).toBe(
+    expect(body(r.calls[0]).jql).toBe(
       '(project = "ENG") AND updated >= "2026-10-04 10:30" ORDER BY updated ASC',
     );
     expect(r.result.cursor).toBe('2026-10-05T10:30:45.000Z');
+  });
+
+  it('turns 400 into an actionable error without the body', async () => {
+    const err = await run([new Response('secret body', { status: 400 })]).catch((e: Error) => e);
+    expect((err as Error).message).toBe(
+      'Source "jira": Jira rejected the query (400). Check "project"/"jql" in config.json',
+    );
+  });
+
+  it('drops app (bot) comments from conversation and authors', async () => {
+    const bot = {
+      ...comment('Automation', 'beep'),
+      author: { displayName: 'Automation', accountType: 'app' },
+    };
+    const r = await run([
+      {
+        issues: [issue('ENG-8', '2026-10-03T12:00:00.000+0000', [bot, comment('Eve', 'hi')])],
+        isLast: true,
+      },
+    ]);
+    const d = r.docs[0] as WaymarkDoc;
+    expect(d.authors).toEqual(['Dana', 'Eve']);
+    expect(d.body).not.toContain('beep');
+  });
+
+  it('caps comments at 500 and logs it', async () => {
+    const page = (n: number) => ({
+      comments: Array.from({ length: n }, () => comment('Eve', 'c')),
+      total: 650,
+    });
+    const r = await run([
+      { issues: [issue('ENG-9', '2026-10-03T12:00:00.000+0000', [], 650)], isLast: true },
+      page(100),
+      page(100),
+      page(100),
+      page(100),
+      page(100),
+    ]);
+    expect(r.calls).toHaveLength(6);
+    expect(r.logs.some((l) => l.includes('ENG-9') && l.includes('500'))).toBe(true);
   });
 
   it('uses a custom jql', async () => {
@@ -173,8 +214,8 @@ describe('jira connector', () => {
       auth: 'personal',
       site: 'acme.atlassian.net',
       jql: 'labels = x',
-    } as never);
-    expect(body(r.calls[0] as never).jql).toBe('(labels = x) ORDER BY updated ASC');
+    });
+    expect(body(r.calls[0]).jql).toBe('(labels = x) ORDER BY updated ASC');
   });
 
   it('fetches overflowing comments from the comment endpoint', async () => {
@@ -215,7 +256,6 @@ describe('jira connector', () => {
       new Response('nope', { status: 401 })) as unknown as typeof fetch;
     const err = await jiraConnector(source, {
       fetch: fetchImpl,
-      env: { JIRA_EMAIL: EMAIL, JIRA_API_TOKEN: PASSWORD },
     })({
       sourceId: 'jira',
       cursor: null,

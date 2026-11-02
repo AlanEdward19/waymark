@@ -2,7 +2,7 @@ import type { JiraSource } from '../../config.js';
 import { makeId, type WaymarkDoc } from '../../store/doc.js';
 import { type AdfNode, adfToMarkdown } from '../atlassian/adf.js';
 import { atlassianBase, atlassianCloudId, atlassianTokenProvider } from '../auth/atlassian.js';
-import { day, indent } from '../github/conversation.js';
+import { day, tail } from '../github/conversation.js';
 import { envToken, fetchJson } from '../http.js';
 import type { Connector } from '../types.js';
 
@@ -17,6 +17,7 @@ const FIELDS = [
   'updated',
   'comment',
 ];
+const MAX_COMMENTS = 500;
 const OVERLAP_MS = 24 * 60 * 60 * 1000; // covers any profile time zone; re-processing is idempotent
 
 export interface JiraDeps {
@@ -25,7 +26,7 @@ export interface JiraDeps {
 }
 
 interface JiraComment {
-  author?: { displayName?: string } | null;
+  author?: { displayName?: string; accountType?: string } | null;
   body?: AdfNode | null;
   created: string;
 }
@@ -73,15 +74,16 @@ export function renderIssue(
 ): WaymarkDoc {
   const f = issue.fields;
   const reporter = f.reporter?.displayName;
-  const commenters = comments.map((c) => c.author?.displayName).filter((n) => !!n) as string[];
+  const human = comments.filter((c) => c.author?.accountType !== 'app');
+  const commenters = human.map((c) => c.author?.displayName).filter((n): n is string => !!n);
   const sections = [
     `${issue.key} · ${f.issuetype.name} · ${f.status.name} · @${reporter ?? 'unknown'}`,
     adfToMarkdown(f.description) || '_No description._',
   ];
-  const lines = comments.map((c) => {
-    const body = indent(adfToMarkdown(c.body), '  ');
-    return `- **${c.author?.displayName ?? 'unknown'}** (${day(iso(c.created))})${body ? `: ${body}` : ''}`;
-  });
+  const lines = human.map(
+    (c) =>
+      `- **${c.author?.displayName ?? 'unknown'}** (${day(iso(c.created))})${tail(adfToMarkdown(c.body), '  ')}`,
+  );
   if (lines.length > 0) sections.push(`## Conversation\n\n${lines.join('\n')}`);
   const category = f.status.statusCategory?.key;
   return {
@@ -145,19 +147,28 @@ export function jiraConnector(source: JiraSource, deps: JiraDeps = {}): Connecto
       const page = await call<SearchPage>('/rest/api/3/search/jql', {
         method: 'POST',
         body: JSON.stringify({ jql, maxResults: 100, fields: FIELDS, nextPageToken }),
+      }).catch((err: Error) => {
+        const status = /responded (400|404) /.exec(err.message)?.[1];
+        if (status === undefined) throw err;
+        throw new Error(
+          `Source "${source.id}": Jira rejected the query (${status}). Check "project"/"jql" in config.json`,
+        );
       });
       for (const issue of page.issues) {
         let comments = issue.fields.comment?.comments ?? [];
         const total = issue.fields.comment?.total ?? comments.length;
         if (total > comments.length) {
           comments = [];
-          while (comments.length < total) {
+          while (comments.length < Math.min(total, MAX_COMMENTS)) {
             const more = await call<CommentPage>(
               `/rest/api/3/issue/${encodeURIComponent(issue.key)}/comment?startAt=${comments.length}&maxResults=100`,
             );
             if (more.comments.length === 0) break;
             comments.push(...more.comments);
           }
+        }
+        if (total > MAX_COMMENTS) {
+          ctx.log(`${issue.key}: ${total} comments, only the first ${MAX_COMMENTS} ingested`);
         }
         await ctx.emit(renderIssue(ctx.sourceId, source.site, issue, comments));
         count++;
