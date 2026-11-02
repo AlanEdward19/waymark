@@ -90,6 +90,7 @@ version: 1
 name: investigate-data-gap
 description: Find why data is missing and where the chain broke
 autonomy: observe            # observe | propose | act — v1 accepts only observe
+card: { github: acme/data-platform }   # where `goto: card` files the write-up
 inputs:
   request: { type: string, required: true }
 stages:
