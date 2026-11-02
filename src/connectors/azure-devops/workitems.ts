@@ -5,7 +5,7 @@ import type { SyncContext } from '../types.js';
 import type { AdoComment, AdoIdentity, AdoWorkItem, AzureDevOpsApi } from './api.js';
 
 const BATCH = 200;
-// WIQL rejects queries over 20000 results unless $top is set (see client.ts)
+// Query results are capped at 20000 items (Azure DevOps work tracking limits); we ask for exactly that with $top (see client.ts)
 export const WIQL_LIMIT = 20_000;
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
