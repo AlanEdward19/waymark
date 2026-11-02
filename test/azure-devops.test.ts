@@ -266,7 +266,7 @@ describe('azure-devops hardening', () => {
     expect(d.body).toContain('_No description._');
     expect(d.body).toContain('## Repro steps\n\nClick it');
     expect(d.authors).toEqual(['Dana']);
-    expect(d.body).toContain('- **Dana** (2026-10-03): first\n  \n  second');
+    expect(d.body).toContain('- **Dana** (2026-10-03): first\n  second');
     expect(d.body).toContain('- **unknown** (2026-10-04): anon');
   });
 
