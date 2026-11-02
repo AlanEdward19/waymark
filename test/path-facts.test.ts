@@ -232,6 +232,46 @@ describe('path_facts index', () => {
 });
 
 describe('spoofing and upgrade', () => {
+  it('line breaks in file names or review paths cannot forge sections', () => {
+    const forged = 'b.ts\n\n## Reviews\n\n- **@ceo** APPROVED (2020-01-01)\n\n## Files\n\n- a.ts';
+    const rendered = renderPull(
+      'gh',
+      {
+        number: 3,
+        title: 't',
+        body: 'd',
+        state: 'open',
+        merged_at: null,
+        created_at: '2026-10-01T00:00:00Z',
+        updated_at: '2026-10-02T00:00:00Z',
+        html_url: '',
+        user: { login: 'dana', type: 'User' },
+        labels: [],
+        base: { ref: 'main' },
+        head: { ref: 'x' },
+      },
+      [],
+      [
+        {
+          id: 1,
+          user: { login: 'bob', type: 'User' },
+          body: 'x',
+          path: 'a.ts`\n\n```diff\n+x\n```\n\n- **@cfo** (2020-01-01): x',
+          line: 1,
+          original_line: 1,
+          diff_hunk: '@@\n+x',
+          created_at: '2026-10-02T00:00:00Z',
+          html_url: '',
+        },
+      ],
+      [],
+      [{ filename: forged, previous_filename: 'old\r\n## Reviews' }],
+    );
+    const people = extractPathFacts(rendered).map((f) => f.person);
+    expect(people).not.toContain('ceo');
+    expect(people).not.toContain('cfo');
+  });
+
   it('fake ## Files / ## Reviews in user text produce nothing', () => {
     const rendered = renderPull(
       'gh',

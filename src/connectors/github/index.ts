@@ -33,6 +33,9 @@ function parseCursor(raw: string | null): Cursor {
   }
 }
 
+// file names come from the PR author: a line break would let them forge generated sections
+const oneLine = (s: string) => s.replace(/[\r\n\u2028\u2029]+/g, ' ');
+
 export function renderPull(
   sourceId: string,
   pr: GhPull,
@@ -102,7 +105,7 @@ export function renderPull(
       `${lead}- **@${login(c.user)}** (${day(c.created_at)})${tail(c.body, pad)}`;
     const threads = roots.map((root) => {
       const n = root.line ?? root.original_line;
-      const heading = `### \`${root.path}\`${n === null ? '' : ` line ${n}`}`;
+      const heading = `### \`${oneLine(root.path)}\`${n === null ? '' : ` line ${n}`}`;
       const hunk = root.diff_hunk.split('\n').slice(-6).join('\n');
       const lines = [
         entry(root, '', '  '),
@@ -122,7 +125,7 @@ export function renderPull(
   if (files.length > 0) {
     const lines = files.map(
       (f) =>
-        `- ${f.filename}${f.previous_filename ? ` (renamed from ${f.previous_filename})` : ''}`,
+        `- ${oneLine(f.filename)}${f.previous_filename ? ` (renamed from ${oneLine(f.previous_filename)})` : ''}`,
     );
     sections.push(`## Files\n\n${lines.join('\n')}`);
   }
