@@ -17,6 +17,7 @@ import {
   verifyToken,
 } from '../src/auth/store.js';
 import { redact } from '../src/redact.js';
+import { writeDoc } from '../src/store/markdown.js';
 
 let tmp: string;
 let db: AuthDb;
@@ -119,6 +120,18 @@ describe('linked identities', () => {
     linkIdentity(db, 'alice', 'oidc', 'https://idp.example.com|sub-1');
   });
 
+  it('treats GUID ids case-insensitively', () => {
+    const guid = '123E4567-E89B-12D3-A456-426614174000';
+    linkIdentity(db, 'alice', 'teams', guid);
+    expect(() => linkIdentity(db, 'bob', 'teams', guid.toLowerCase())).toThrow(
+      'teams id "123e4567-e89b-12d3-a456-426614174000" is already linked to user "alice"',
+    );
+    expect(findUserByIdentity(db, 'teams', guid)?.name).toBe('alice');
+    expect(findUserByIdentity(db, 'teams', guid.toLowerCase())?.name).toBe('alice');
+    linkIdentity(db, 'bob', 'linear', guid);
+    expect(findUserByIdentity(db, 'linear', guid.toLowerCase())?.name).toBe('bob');
+  });
+
   it('refuses an identity already linked to another user, naming that user', () => {
     linkIdentity(db, 'alice', 'github', 'octo');
     expect(() => linkIdentity(db, 'bob', 'github', 'OCTO')).toThrow(
@@ -143,6 +156,9 @@ describe('tokens', () => {
     db.pragma('wal_checkpoint(TRUNCATE)');
     const file = await fs.readFile(path.join(tmp, 'auth', 'auth.db'));
     expect(file.includes(token)).toBe(false);
+    const bare = createToken(db, { user: 'alice' }, T0).token;
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    expect((await fs.readFile(path.join(tmp, 'auth', 'auth.db'))).includes(bare)).toBe(false);
     expect(JSON.stringify(listTokens(db))).not.toContain(token);
     expect(JSON.stringify(listTokens(db))).not.toContain('hash');
   });
@@ -202,6 +218,25 @@ describe('redaction', () => {
     expect(redact(`wmk_${'a'.repeat(42)}-`)).toBe('[REDACTED:waymark-token]');
     expect(redact(`wmk_${'a'.repeat(42)}`)).toBe(`wmk_${'a'.repeat(42)}`);
   });
+});
+
+it('a token pasted into a note body is stored redacted', async () => {
+  addUser(db, { name: 'alice' });
+  const { token } = createToken(db, { user: 'alice' });
+  const r = await writeDoc(path.join(tmp, 'wiki'), {
+    id: 'notes/note/t',
+    kind: 'note',
+    sourceId: 'notes',
+    title: 'T',
+    authors: [],
+    tags: [],
+    createdAt: T0.toISOString(),
+    updatedAt: T0.toISOString(),
+    body: `my token is ${token}`,
+  });
+  const raw = await fs.readFile(r.path, 'utf8');
+  expect(raw).toContain('[REDACTED:waymark-token]');
+  expect(raw).not.toContain(token);
 });
 
 function addAlice(): AuthDb {

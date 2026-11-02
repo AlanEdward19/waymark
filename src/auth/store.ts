@@ -49,9 +49,9 @@ const PROVIDERS: Record<string, ProviderSpec> = {
     normalize: (v) => v.toLowerCase(),
   },
   slack: { re: /^[UW][A-Z0-9]{2,}$/, hint: 'a Slack user id like U01ABC23DEF' },
-  teams: { re: GUID, hint: 'an Entra object id (GUID)' },
+  teams: { re: GUID, hint: 'an Entra object id (GUID)', normalize: (v) => v.toLowerCase() },
   discord: { re: /^\d{17,20}$/, hint: 'a Discord user id (17-20 digits)' },
-  linear: { re: GUID, hint: 'a Linear user UUID' },
+  linear: { re: GUID, hint: 'a Linear user UUID', normalize: (v) => v.toLowerCase() },
   oidc: { re: /^[^|\s]+\|[^|\s]+$/, hint: '<issuer>|<subject>' },
 };
 export const PROVIDER_NAMES = Object.keys(PROVIDERS);
@@ -318,18 +318,22 @@ function toTokenInfo(r: TokenRow, now: Date): TokenInfo {
 
 export function createToken(
   db: AuthDb,
-  input: { user: string; label?: string; expiresDays?: number },
+  input: { user: string; label?: string; expiresDays?: number | string },
   now: Date = new Date(),
 ): { token: string; info: TokenInfo } {
   const { expiresDays } = input;
-  if (expiresDays !== undefined && !(Number.isInteger(expiresDays) && expiresDays >= 1)) {
-    throw new Error(`invalid expiry "${expiresDays}" (a whole number of days, at least 1)`);
+  let expiresAt: string | null = null;
+  if (expiresDays !== undefined) {
+    const days = Number(expiresDays);
+    const at = new Date(now.getTime() + days * DAY_MS);
+    if (!(Number.isInteger(days) && days >= 1) || Number.isNaN(at.getTime())) {
+      throw new Error(`invalid expiry "${expiresDays}" (a whole number of days, at least 1)`);
+    }
+    expiresAt = at.toISOString();
   }
   requireUser(db, input.user);
   const token = `wmk_${randomBytes(32).toString('base64url')}`;
   const id = `tok_${randomBytes(4).toString('hex')}`;
-  const expiresAt =
-    expiresDays === undefined ? null : new Date(now.getTime() + expiresDays * DAY_MS).toISOString();
   db.prepare(
     'INSERT INTO tokens (id, user, hash, label, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(id, input.user, hashToken(token), input.label ?? '', now.toISOString(), expiresAt);
@@ -353,8 +357,9 @@ export function revokeToken(db: AuthDb, id: string, now: Date = new Date()): voi
   if (r.changes === 0) throw new Error(`token not found: ${id}`);
 }
 
-// Exported for the network server (#95). Compares hashes in constant time; updates lastUsedAt at
-// most once per minute per token.
+// Exported for the network server (#95). The token is hashed before the lookup, so no timing
+// difference reveals anything about the secret; timingSafeEqual on the hashes is defence in depth.
+// Updates lastUsedAt at most once per minute per token.
 export function verifyToken(db: AuthDb, token: string, now: Date = new Date()): VerifyResult {
   if (!TOKEN_RE.test(token)) return { ok: false, reason: 'invalid' };
   const hash = hashToken(token);

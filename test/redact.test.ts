@@ -14,6 +14,7 @@ const positives: Record<string, [string, string]> = {
   'private-key': [`before\n${pem('RSA')}\nafter`, 'before\n[REDACTED:private-key]\nafter'],
   'github-token (ghp)': [`ghp_${a(36)}`, '[REDACTED:github-token]'],
   'github-token (fine-grained)': [`github_pat_${a(30)}`, '[REDACTED:github-token]'],
+  'waymark-token': [`token wmk_${a(43)}`, 'token [REDACTED:waymark-token]'],
   'anthropic-key': [`sk-ant-${a(30)}`, '[REDACTED:anthropic-key]'],
   'openai-key': [`sk-proj-${a(30)}`, '[REDACTED:openai-key]'],
   'aws-access-key': [`AKIA${'A'.repeat(16)}`, '[REDACTED:aws-access-key]'],
@@ -43,6 +44,7 @@ describe('redact', () => {
       'a'.repeat(40).replace(/a/g, 'f'),
       '123e4567-e89b-12d3-a456-426614174000',
       'Bearer token',
+      `xwmk_${a(43)}`,
     ]) {
       expect(redact(s)).toBe(s);
     }

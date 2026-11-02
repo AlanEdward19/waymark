@@ -104,11 +104,10 @@ function tokenCommand(db: AuthDb, args: string[], f: AuthFlags): string {
     case 'create': {
       if (!arg)
         throw new Error('usage: waymark token create <user> [--label <text>] [--expires <days>]');
-      const expiresDays = f.expires === undefined ? undefined : Number(f.expires);
       const { token, info } = createToken(db, {
         user: arg,
         label: f.label,
-        expiresDays,
+        expiresDays: f.expires,
       });
       process.stderr.write(`Token ${info.id} for ${arg}. Store it now: it is not shown again.\n`);
       return `${token}\n`;

@@ -82,6 +82,8 @@ describe('waymark user', () => {
     expect(JSON.parse(out())[0]).toMatchObject({ role: 'member', disabled: false });
     expect(await run('user', 'update', 'alice', '--admin', '--member')).toBe(1);
     expect(err()).toBe('error: --admin and --member cannot be used together\n');
+    expect(await run('user', 'update', 'alice', '--disable', '--enable')).toBe(1);
+    expect(err()).toBe('error: --disable and --enable cannot be used together\n');
     expect(await run('user', 'update', 'ghost')).toBe(1);
     expect(err()).toBe('error: user not found: ghost\n');
   });
@@ -129,7 +131,9 @@ describe('waymark token', () => {
     expect(await run('token', 'revoke', 'tok_00000000')).toBe(1);
     expect(err()).toBe('error: token not found: tok_00000000\n');
     expect(await run('token', 'create', 'alice', '--expires', 'soon')).toBe(1);
-    expect(err()).toBe('error: invalid expiry "NaN" (a whole number of days, at least 1)\n');
+    expect(err()).toBe('error: invalid expiry "soon" (a whole number of days, at least 1)\n');
+    expect(await run('token', 'create', 'alice', '--expires', '1000000000')).toBe(1);
+    expect(err()).toBe('error: invalid expiry "1000000000" (a whole number of days, at least 1)\n');
     expect(await run('token', 'create', 'ghost')).toBe(1);
     expect(err()).toBe('error: user not found: ghost\n');
   });
