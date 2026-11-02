@@ -174,6 +174,13 @@ describe('jira connector', () => {
     );
   });
 
+  it('turns 404 into the same actionable error', async () => {
+    const err = await run([new Response('', { status: 404 })]).catch((e: Error) => e);
+    expect((err as Error).message).toBe(
+      'Source "jira": Jira rejected the query (404). Check "project"/"jql" in config.json',
+    );
+  });
+
   it('drops app (bot) comments from conversation and authors', async () => {
     const bot = {
       ...comment('Automation', 'beep'),
@@ -205,6 +212,20 @@ describe('jira connector', () => {
     ]);
     expect(r.calls).toHaveLength(6);
     expect(r.logs.some((l) => l.includes('ENG-9') && l.includes('500'))).toBe(true);
+  });
+
+  it('never keeps more than 500 comments when pages overshoot', async () => {
+    const page = (n: number) => ({
+      comments: Array.from({ length: n }, () => comment('Eve', 'c')),
+      total: 650,
+    });
+    const r = await run([
+      { issues: [issue('ENG-9', '2026-10-03T12:00:00.000+0000', [], 650)], isLast: true },
+      page(450),
+      page(100),
+    ]);
+    const body = (r.docs[0] as WaymarkDoc).body;
+    expect(body.match(/^- \*\*Eve\*\*/gm)).toHaveLength(500);
   });
 
   it('uses a custom jql', async () => {

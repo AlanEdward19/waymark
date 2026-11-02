@@ -166,6 +166,7 @@ export function jiraConnector(source: JiraSource, deps: JiraDeps = {}): Connecto
             if (more.comments.length === 0) break;
             comments.push(...more.comments);
           }
+          comments = comments.slice(0, MAX_COMMENTS);
         }
         if (total > MAX_COMMENTS) {
           ctx.log(`${issue.key}: ${total} comments, only the first ${MAX_COMMENTS} ingested`);
