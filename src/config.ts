@@ -8,9 +8,19 @@ import { ensureWikiRepo } from './store/wikigit.js';
 const SourceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
 // ADR-0002: 'app' = Waymark's own identity at the source, 'personal' = dev-only personal token
 const Auth = z.enum(['app', 'personal']).default('app');
+// #97: no access = every authenticated user; groups = members of at least one (admins see all)
+const Access = z
+  .strictObject({
+    groups: z
+      .array(z.string().regex(/^[a-z0-9][a-z0-9._-]{0,62}$/))
+      .min(1)
+      .max(50),
+  })
+  .optional();
 
 export const DiscordSourceSchema = z.object({
   id: SourceId,
+  access: Access,
   type: z.literal('discord'),
   // user tokens are against Discord's terms: the Waymark bot is the only identity
   auth: z
@@ -23,6 +33,7 @@ export const DiscordSourceSchema = z.object({
 });
 export const GitSourceSchema = z.object({
   id: SourceId,
+  access: Access,
   type: z.literal('git'),
   auth: Auth,
   path: z.string().min(1), // absolute or relative to the config file dir
@@ -32,6 +43,7 @@ export const GitSourceSchema = z.object({
 });
 export const GithubSourceSchema = z.object({
   id: SourceId,
+  access: Access,
   type: z.literal('github'),
   auth: Auth,
   repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/), // "owner/name"
@@ -39,6 +51,7 @@ export const GithubSourceSchema = z.object({
 });
 export const LinearSourceSchema = z.object({
   id: SourceId,
+  access: Access,
   type: z.literal('linear'),
   auth: Auth,
   team: z.string().min(1).optional(), // team key, e.g. "ENG"
@@ -46,6 +59,7 @@ export const LinearSourceSchema = z.object({
 export const JiraSourceSchema = z
   .object({
     id: SourceId,
+    access: Access,
     type: z.literal('jira'),
     auth: Auth,
     site: z.string().regex(/^[a-z0-9-]+\.atlassian\.net$/), // e.g. "acme.atlassian.net"
@@ -60,12 +74,14 @@ export const JiraSourceSchema = z
   });
 export const NotionSourceSchema = z.object({
   id: SourceId,
+  access: Access,
   type: z.literal('notion'),
   // the internal integration "Waymark" is the identity; there is no personal fallback
   auth: Auth.refine((a) => a === 'app', { message: "notion sources only support auth: 'app'" }),
 });
 export const AzureDevOpsSourceSchema = z.object({
   id: SourceId,
+  access: Access,
   type: z.literal('azure-devops'),
   auth: Auth,
   organization: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -103,14 +119,33 @@ export const LlmSchema = z.strictObject({
   temperature: z.number().min(0).max(2).optional(), // omitted from requests unless set
   timeoutMs: z.number().int().min(1000).max(300000).default(60000),
 });
+// each platform section is defined by its own issue; absent = that bot is off
+const BotSection = z.looseObject({}).optional();
+export const BOT_PLATFORMS = ['slack', 'teams', 'discord', 'github', 'linear'] as const;
+export type BotPlatform = (typeof BOT_PLATFORMS)[number];
+export const BotsSchema = z.object({
+  unlinkedUsers: z.enum(['deny', 'public']).default('deny'),
+  perUserPerMinute: z.number().int().min(1).max(60).default(6),
+  slack: BotSection,
+  teams: BotSection,
+  discord: BotSection,
+  github: BotSection,
+  linear: BotSection,
+});
+export const AuditSchema = z.strictObject({
+  queries: z.boolean().default(false), // log question/query text, not only its length
+});
 export const ConfigSchema = z.object({
   version: z.literal(1),
   sources: z.array(SourceSchema).default([]),
   embeddings: EmbeddingsSchema.optional(),
   llm: LlmSchema.optional(),
   people: z.array(PersonSchema).default([]),
+  bots: BotsSchema.optional(),
+  audit: AuditSchema.optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
+export type BotsConfig = z.infer<typeof BotsSchema>;
 export type AzureDevOpsSource = z.infer<typeof AzureDevOpsSourceSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
@@ -139,8 +174,19 @@ export async function loadConfig(paths: WaymarkPaths): Promise<Config> {
     throw invalid((err as Error).message);
   }
 
-  const r = raw as { sources?: unknown; embeddings?: unknown; llm?: unknown } | null;
-  const secretHolders = [...(Array.isArray(r?.sources) ? r.sources : []), r?.embeddings, r?.llm];
+  const r = raw as {
+    sources?: unknown;
+    embeddings?: unknown;
+    llm?: unknown;
+    bots?: Record<string, unknown>;
+  } | null;
+  const bots = r?.bots !== null && typeof r?.bots === 'object' ? r.bots : {};
+  const secretHolders = [
+    ...(Array.isArray(r?.sources) ? r.sources : []),
+    r?.embeddings,
+    r?.llm,
+    ...BOT_PLATFORMS.map((p) => bots[p]),
+  ];
   for (const s of secretHolders) {
     if (s !== null && typeof s === 'object' && ('token' in s || 'apiKey' in s)) {
       throw invalid('tokens must come from environment variables, not config');

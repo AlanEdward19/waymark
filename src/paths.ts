@@ -8,6 +8,8 @@ export interface WaymarkPaths {
   db: string;
   /** accounts and tokens: state, not cache; never touched by reindex */
   authDb: string;
+  /** append-only audit log, one JSONL file per UTC month */
+  audit: string;
 }
 
 export function resolvePaths(env: NodeJS.ProcessEnv = process.env): WaymarkPaths {
@@ -20,5 +22,6 @@ export function resolvePaths(env: NodeJS.ProcessEnv = process.env): WaymarkPaths
     wiki: path.join(home, 'wiki'),
     db: path.join(home, 'db', 'waymark.db'),
     authDb: path.join(home, 'auth', 'auth.db'),
+    audit: path.join(home, 'audit'),
   };
 }

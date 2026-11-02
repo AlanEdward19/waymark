@@ -13,6 +13,7 @@ describe('resolvePaths', () => {
       wiki: path.join(home, 'wiki'),
       db: path.join(home, 'db', 'waymark.db'),
       authDb: path.join(home, 'auth', 'auth.db'),
+      audit: path.join(home, 'audit'),
     });
   });
 
