@@ -95,6 +95,7 @@ That gives Claude Code the `search`, `get_document`, `save_note` and handoff too
 | Git repository                               | `git`     | Commits and markdown docs (`include: ["commits", "docs"]`)                | Local checkout                 |
 | GitHub                                       | `github`  | PRs with reviews, issues with comments                                    | GitHub App                     |
 | Linear                                       | `linear`  | Issues and comments                                                       | OAuth app (client credentials) |
+| Jira Cloud                                   | `jira`    | Issues and comments (`project` or `jql`)                                  | Atlassian service account      |
 | Notion                                       | `notion`  | Pages shared with the integration                                         | Internal integration           |
 | Discord                                      | `discord` | Messages of configured channels, one doc per channel per day              | Bot                            |
 | Azure DevOps, Jira, Confluence, Slack, Teams |           | In progress, see [#20](https://github.com/AlanEdward19/waymark/issues/20) |                                |
