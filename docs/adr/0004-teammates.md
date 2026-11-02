@@ -97,7 +97,7 @@ stages:
     instructions: |
       Trace the data from where the user saw it back to its origin.
       Prove each hop with a tool call before moving on.
-    tools: [waymark, currency-db.query, replica-db.query, cdc-logs.search]
+    tools: [waymark, currency-db__query, replica-db__query, cdc-logs__search]   # `waymark` = all waymark__* tools; `server` = every allowed tool of that server
     budget: { maxTurns: 60, maxMinutes: 30, maxCostUsd: 3 }
     next:
       - when: { outcome: root_cause_found }
@@ -148,7 +148,7 @@ A stage ends when the runtime calls the gateway tool `waymark__finish_stage` onc
   "outcome": "root_cause_found",
   "summary": "Replication job of 2026-10-30 failed on a decimal overflow; source rows exist, replica rows do not.",
   "findings": [
-    { "claim": "API returns null for 2026-10-30", "evidence": [{ "tool": "currency-api.get", "ref": "call-3" }] }
+    { "claim": "API returns null for 2026-10-30", "evidence": [{ "tool": "currency-api__get", "ref": "call-3" }] }
   ],
   "rootCause": { "entity": "component:cdc-y", "location": "src/sink/mapper.ts:88", "introducedBy": "a1b2c3d" },
   "complexity": "low",
@@ -255,7 +255,7 @@ These files live in the repos the git source already syncs. Waymark adds two ann
 - **`waymark.dev/feeds`:** the entities a component writes to. Backstage has no data-lineage
   direction, and an investigation needs it: CDC project Y feeds the replica database.
 - **`waymark.dev/tools`:** gateway tool names that inspect this entity, so the agent knows that
-  `replica-db` is checked with `replica-db.query`.
+  `replica-db` is checked with `replica-db__query`.
 
 Entities become documents `catalog/<kind>/<name>`. Edges live in a rebuildable index table. The
 `waymark__system_map(ref, depth)` tool returns upstream and downstream entities with their owners,
