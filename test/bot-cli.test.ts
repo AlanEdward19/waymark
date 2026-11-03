@@ -26,7 +26,8 @@ const auditLines = async () => {
     .join('')
     .trim()
     .split('\n')
-    .map((l) => JSON.parse(l));
+    .map((l) => JSON.parse(l))
+    .filter((event) => event.event === 'bot.ask');
 };
 
 beforeEach(async () => {

@@ -42,7 +42,7 @@ const count = (db: ReturnType<typeof openDb>, table: string, id?: string) =>
 describe('openDb', () => {
   it('creates the current-schema db in WAL mode and reopens', () => {
     const db = openDb(dbPath);
-    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.pragma('user_version', { simple: true })).toBe(4);
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal');
     db.close();
     openDb(dbPath).close();
