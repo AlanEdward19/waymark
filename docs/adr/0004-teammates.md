@@ -5,7 +5,7 @@
 
 ## Context
 
-Teams want AI teammates that do real work from a chat mention or a schedule. An example:
+Teams want AI teammates that do real work from a chat mention or the CLI. An example:
 
 1. A manager notices blank currency data in an add-in and mentions the bot in Teams.
 2. The teammate works out that the data comes from service X, which is fed by CDC replication of
@@ -46,7 +46,7 @@ Two constraints shape the rest:
 | Waymark does | The operator's runtime and infra do |
 |---|---|
 | Teammate definition: name, chat persona, Waymark user, runtime, playbooks | The agent loop and the model |
-| Triggers: CLI, chat mention, API (schedules later) | Sandboxing and isolation of the machine that runs the agent |
+| Triggers: CLI, chat mention, API (for a schedule, the OS scheduler or CI calls the CLI) | Sandboxing and isolation of the machine that runs the agent |
 | Playbooks: stages, instructions, allowed tools, budgets, routing, autonomy level | The real tools: databases, APIs, logs, CI/CD |
 | Context: system map, search, experts, conventions, past runs | Model API keys and runtime secrets |
 | Tool gateway: one MCP endpoint per run, allow-listed and audited | Deployments (through its own CD) |
@@ -89,7 +89,7 @@ git and edited by hand or by any editor, and Waymark exports a JSON Schema for e
 version: 1
 name: investigate-data-gap
 description: Find why data is missing and where the chain broke
-autonomy: observe            # observe | propose | act — v1 accepts only observe
+autonomy: observe            # observe | propose — v1 accepts only observe
 card: { github: acme/data-platform }   # where `goto: card` files the write-up
 inputs:
   request: { type: string, required: true }
@@ -119,9 +119,8 @@ stages:
 - **Autonomy levels:**
   - `observe`: read-only tools, no writes anywhere except the report and card.
   - `propose`: may open branches and PRs, never merge.
-  - `act`: may merge or deploy after gates.
-  - v1 implements `observe` only. The other values are reserved and rejected with an actionable
-    message until their phase ships.
+  - v1 implements `observe` only. `propose` is reserved and rejected with an actionable message
+    until its phase ships. Merging and deploying without a human are out of scope for the core.
 
 ### 4. Context handed to each stage
 
@@ -294,9 +293,8 @@ evidence. The brain then remembers past investigations, and the next one starts 
 
 - Teams can run teammates on infrastructure they already pay for and switch runtimes without
   changing playbooks.
-- v1 is **observe-only**: teammates investigate and report or file cards. Writing code (`propose`),
-  merging and deploying (`act`), and scheduled monitors are later phases
-  of the same epic.
+- v1 is **observe-only**: teammates investigate and report or file cards. Proposing fixes as
+  pull requests (`propose`) is a later phase of the same epic.
 - The quality of an investigation depends on the system map and on read-only tool coverage.
   Operators must maintain `catalog-info.yaml` and grant read-only credentials.
 - **New public contracts that need care when changed:**
