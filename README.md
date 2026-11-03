@@ -88,18 +88,18 @@ A teammate is an AI agent your team configures in Waymark, starts from a chat me
 - your sandbox;
 - your infrastructure.
 
-Waymark never runs model-generated code itself. The design is [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Proposing fixes as pull requests comes later.
+Waymark never runs model-generated code itself. The design is [ADR-0004](docs/adr/0004-teammates.md) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Proposing fixes as pull requests comes later.
 
 ### How Waymark fits an agentic factory
 
-| Layer | What it needs | Waymark |
-|---|---|---|
-| Brain | Code, docs and decisions, the same for people and agents | ✅ today: connectors, hybrid search, MCP, hooks, handoffs, path facts |
-| Identity | Apps and bots that act as the system, not as a person | ✅ today: own identity per source, users and tokens |
-| Work intake | Chat mentions, trackers, alerts | 🚧 chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19)) |
-| Control | Playbook contract, dispatch, routing | 🔜 teammates ([#116](https://github.com/AlanEdward19/waymark/issues/116)) |
-| Execution | Agent runtime, sandbox, tools | Yours. Waymark plugs in through runners and a tool gateway ([#116](https://github.com/AlanEdward19/waymark/issues/116)) |
-| Quality | Evidence-checked verdicts, audit, evals | 🔜 verdicts and audit ([#116](https://github.com/AlanEdward19/waymark/issues/116), [#94](https://github.com/AlanEdward19/waymark/issues/94)); evals later |
+| Layer       | What it needs                                            | Waymark                                                                                                                                                   |
+| ----------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Brain       | Code, docs and decisions, the same for people and agents | ✅ today: connectors, hybrid search, MCP, hooks, handoffs, path facts                                                                                     |
+| Identity    | Apps and bots that act as the system, not as a person    | ✅ today: own identity per source, users and tokens                                                                                                       |
+| Work intake | Chat mentions, trackers, alerts                          | 🚧 chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19))                                                                                   |
+| Control     | Playbook contract, dispatch, routing                     | 🔜 teammates ([#116](https://github.com/AlanEdward19/waymark/issues/116))                                                                                 |
+| Execution   | Agent runtime, sandbox, tools                            | Yours. Waymark plugs in through runners and a tool gateway ([#116](https://github.com/AlanEdward19/waymark/issues/116))                                   |
+| Quality     | Evidence-checked verdicts, audit, evals                  | 🔜 verdicts and audit ([#116](https://github.com/AlanEdward19/waymark/issues/116), [#94](https://github.com/AlanEdward19/waymark/issues/94)); evals later |
 
 Waymark is meant to sit alongside the tools you already use:
 
@@ -189,7 +189,7 @@ Secrets never go in `config.json`; they come from environment variables listed p
 - 🚧 Organisational memory ([#16](https://github.com/AlanEdward19/waymark/issues/16)): path facts and people aliases shipped; expertise map, conventions and conflict-aware ranking next
 - 🚧 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18)): users and tokens shipped; team server, audit and access control next
 - 🚧 Chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19)): runtime shipped; Teams, Slack, Discord, GitHub and Linear next
-- 🔜 AI teammates on your own runtime ([#116](https://github.com/AlanEdward19/waymark/issues/116), [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115))
+- 🔜 AI teammates on your own runtime ([#116](https://github.com/AlanEdward19/waymark/issues/116), [ADR-0004](docs/adr/0004-teammates.md))
 
 Waymark is self-hosted and model-agnostic. It works with no LLM at all, it never trains on your data, and it never runs your agents' code: your runtime does.
 

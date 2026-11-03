@@ -43,14 +43,14 @@ Two constraints shape the rest:
 
 ### 1. Responsibilities
 
-| Waymark does | The operator's runtime and infra do |
-|---|---|
-| Teammate definition: name, chat persona, Waymark user, runtime, playbooks | The agent loop and the model |
+| Waymark does                                                                            | The operator's runtime and infra do                         |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Teammate definition: name, chat persona, Waymark user, runtime, playbooks               | The agent loop and the model                                |
 | Triggers: CLI, chat mention, API (for a schedule, the OS scheduler or CI calls the CLI) | Sandboxing and isolation of the machine that runs the agent |
-| Playbooks: stages, instructions, allowed tools, budgets, routing, autonomy level | The real tools: databases, APIs, logs, CI/CD |
-| Context: system map, search, experts, conventions, past runs | Model API keys and runtime secrets |
-| Tool gateway: one MCP endpoint per run, allow-listed and audited | Deployments (through its own CD) |
-| Run state, routing between stages, reports, cards, audit | |
+| Playbooks: stages, instructions, allowed tools, budgets, routing, autonomy level        | The real tools: databases, APIs, logs, CI/CD                |
+| Context: system map, search, experts, conventions, past runs                            | Model API keys and runtime secrets                          |
+| Tool gateway: one MCP endpoint per run, allow-listed and audited                        | Deployments (through its own CD)                            |
+| Run state, routing between stages, reports, cards, audit                                |                                                             |
 
 Waymark never executes model-generated code or shell commands itself. It never holds the runtime's
 model API keys.
@@ -89,8 +89,8 @@ git and edited by hand or by any editor, and Waymark exports a JSON Schema for e
 version: 1
 name: investigate-data-gap
 description: Find why data is missing and where the chain broke
-autonomy: observe            # observe | propose — v1 accepts only observe
-card: { github: acme/data-platform }   # where `goto: card` files the write-up
+autonomy: observe # observe | propose — v1 accepts only observe
+card: { github: acme/data-platform } # where `goto: card` files the write-up
 inputs:
   request: { type: string, required: true }
 stages:
@@ -98,7 +98,7 @@ stages:
     instructions: |
       Trace the data from where the user saw it back to its origin.
       Prove each hop with a tool call before moving on.
-    tools: [waymark, currency-db__query, replica-db__query, cdc-logs__search]   # `waymark` = all waymark__* tools; `server` = every allowed tool of that server
+    tools: [waymark, currency-db__query, replica-db__query, cdc-logs__search] # `waymark` = all waymark__* tools; `server` = every allowed tool of that server
     budget: { maxTurns: 60, maxMinutes: 30, maxCostUsd: 3 }
     next:
       - when: { outcome: root_cause_found }
@@ -148,24 +148,31 @@ A stage ends when the runtime calls the gateway tool `waymark__finish_stage` onc
   "outcome": "root_cause_found",
   "summary": "Replication job of 2026-10-30 failed on a decimal overflow; source rows exist, replica rows do not.",
   "findings": [
-    { "claim": "API returns null for 2026-10-30", "evidence": [{ "tool": "currency-api__get", "ref": "call-3" }] }
+    {
+      "claim": "API returns null for 2026-10-30",
+      "evidence": [{ "tool": "currency-api__get", "ref": "call-3" }]
+    }
   ],
-  "rootCause": { "entity": "component:cdc-y", "location": "src/sink/mapper.ts:88", "introducedBy": "a1b2c3d" },
+  "rootCause": {
+    "entity": "component:cdc-y",
+    "location": "src/sink/mapper.ts:88",
+    "introducedBy": "a1b2c3d"
+  },
   "complexity": "low",
   "confidence": 0.8,
   "proposedActions": ["Widen DECIMAL(10,2) to DECIMAL(18,6) in the sink mapper"]
 }
 ```
 
-| Field | Values | Required |
-|---|---|---|
-| `outcome` | `resolved`, `root_cause_found`, `needs_human`, `inconclusive`, `failed` | yes |
-| `summary` | at most 2 000 characters | yes |
-| `findings` | list of claims, each with evidence pointing to gateway tool-call ids or document ids | no |
-| `rootCause` | `entity`, `location`, `introducedBy` | no |
-| `complexity` | `low`, `medium`, `high` | no |
-| `confidence` | number from 0 to 1 | no |
-| `proposedActions` | list of strings | no |
+| Field             | Values                                                                               | Required |
+| ----------------- | ------------------------------------------------------------------------------------ | -------- |
+| `outcome`         | `resolved`, `root_cause_found`, `needs_human`, `inconclusive`, `failed`              | yes      |
+| `summary`         | at most 2 000 characters                                                             | yes      |
+| `findings`        | list of claims, each with evidence pointing to gateway tool-call ids or document ids | no       |
+| `rootCause`       | `entity`, `location`, `introducedBy`                                                 | no       |
+| `complexity`      | `low`, `medium`, `high`                                                              | no       |
+| `confidence`      | number from 0 to 1                                                                   | no       |
+| `proposedActions` | list of strings                                                                      | no       |
 
 - Every evidence `ref` must exist in the run's tool-call log or the index. Unknown refs are rejected,
   so the runtime has to fix its verdict.
@@ -183,11 +190,11 @@ self-hosted runners.
 
 **Protocol.** HTTP JSON under `/api/v1/runner/` on `waymark serve`:
 
-| Call | Behaviour |
-|---|---|
-| `claim` | Long-polls up to 30 s. Returns a job or nothing. |
-| `events` | Batches log, tool, message and cost events. Doubles as the heartbeat and returns `{ cancel }`. |
-| `complete` | Reports the final status, cost and turns. |
+| Call       | Behaviour                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| `claim`    | Long-polls up to 30 s. Returns a job or nothing.                                               |
+| `events`   | Batches log, tool, message and cost events. Doubles as the heartbeat and returns `{ cancel }`. |
+| `complete` | Reports the final status, cost and turns.                                                      |
 
 - A job is leased for 60 s and renewed by events every 15 s. When a lease expires, the stage fails
   with `runner_lost`; v1 does not retry automatically.
