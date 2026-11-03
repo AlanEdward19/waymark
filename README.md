@@ -88,7 +88,7 @@ A teammate is an AI agent your team configures in Waymark, starts from a chat me
 - your sandbox;
 - your infrastructure.
 
-Waymark never runs model-generated code itself. The design is [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Writing code, merging, scheduled monitors and a setup portal come later.
+Waymark never runs model-generated code itself. The design is [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Writing code, merging and scheduled monitors come later.
 
 ### How Waymark fits an agentic factory
 
@@ -189,7 +189,6 @@ Secrets never go in `config.json`; they come from environment variables listed p
 - 🚧 Organisational memory ([#16](https://github.com/AlanEdward19/waymark/issues/16)): path facts and people aliases shipped; expertise map, conventions and conflict-aware ranking next
 - 🚧 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18)): users and tokens shipped; team server, audit and access control next
 - 🚧 Chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19)): runtime shipped; Teams, Slack, Discord, GitHub and Linear next
-- 🚧 Optional local web portal for plug-and-play setup ([#81](https://github.com/AlanEdward19/waymark/issues/81))
 - 🔜 AI teammates on your own runtime ([#116](https://github.com/AlanEdward19/waymark/issues/116), [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115))
 
 Waymark is self-hosted and model-agnostic. It works with no LLM at all, it never trains on your data, and it never runs your agents' code: your runtime does.
