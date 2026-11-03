@@ -2,6 +2,7 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HOOK_HANDLERS } from './agents/index.js';
+import { runAuditCommand } from './audit-reader.js';
 import { runAuthCommand } from './auth/commands.js';
 import { runBotTest } from './bots/console.js';
 import { initHome, loadConfig } from './config.js';
@@ -12,7 +13,9 @@ import { formatHits } from './index/format.js';
 import { hybridSearch, queryEmbedderFor } from './index/hybrid.js';
 import { createLlm, llmConfigFrom } from './llm/client.js';
 import { runStdio } from './mcp/server.js';
+import { findExperts, formatExperts } from './memory/experts.js';
 import { createPeopleResolver, formatPeople, listPeople, printable } from './memory/people.js';
+import { formatDocumentFlags, getDocumentFlags } from './memory/supersession.js';
 import { resolvePaths } from './paths.js';
 import { DOC_KINDS, isDocKind } from './store/doc.js';
 import { readDoc, serializeDoc } from './store/markdown.js';
@@ -36,6 +39,11 @@ Commands:
                  Ranked search over indexed documents
   show <id>      Print a document as markdown
   llm test       Check the optional LLM setup (needs "llm" in config)
+  experts <path> [--since <days>] [--limit <n>] [--source <id>]... [--json]
+                 Find people who know a file or directory best
+  audit [--since <ISO or Nd>] [--until <ISO>] [--user <name>] [--event <e>]...
+        [--outcome ok|denied|error] [--limit <n>] [--json]
+                 Read local audit events
   people [--json]
                  List person names seen in the index, grouped by canonical name
   user add|list|update|link|unlink
@@ -56,6 +64,10 @@ export async function main(argv: string[]): Promise<number> {
         kind: { type: 'string', multiple: true },
         source: { type: 'string', multiple: true },
         limit: { type: 'string' },
+        since: { type: 'string' },
+        until: { type: 'string' },
+        outcome: { type: 'string' },
+        event: { type: 'string', multiple: true },
         json: { type: 'boolean' },
         display: { type: 'string' },
         admin: { type: 'boolean' },
@@ -187,7 +199,16 @@ export async function main(argv: string[]): Promise<number> {
         if (!id) throw new Error('show needs a document id');
         const doc = await readDoc(resolvePaths().wiki, id);
         if (!doc) throw new Error(`document not found: ${id}`);
-        process.stdout.write(serializeDoc(doc));
+        const db = openDb(resolvePaths().db);
+        try {
+          process.stdout.write(
+            [formatDocumentFlags(getDocumentFlags(db, id)), serializeDoc(doc)]
+              .filter(Boolean)
+              .join('\n\n'),
+          );
+        } finally {
+          db.close();
+        }
         return 0;
       }
       case 'llm': {
@@ -201,6 +222,36 @@ export async function main(argv: string[]): Promise<number> {
         process.stdout.write(
           `LLM ok: ${cfg.model} at ${new URL(cfg.url).host} replied "${printable(reply.slice(0, 40))}" in ${Date.now() - started} ms\n`,
         );
+        return 0;
+      }
+      case 'audit': {
+        process.stdout.write(runAuditCommand(resolvePaths().audit, values));
+        return 0;
+      }
+      case 'experts': {
+        const path = positionals[1];
+        if (path === undefined) throw new Error('experts needs a path');
+        const limit = values.limit === undefined ? undefined : Number(values.limit);
+        const sinceDays = values.since === undefined ? undefined : Number(values.since);
+        if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 20))
+          throw new Error(`invalid limit "${values.limit}"`);
+        if (sinceDays !== undefined && (!Number.isInteger(sinceDays) || sinceDays < 1))
+          throw new Error(`invalid since "${values.since}"`);
+        const paths = resolvePaths();
+        const resolve = createPeopleResolver((await loadConfig(paths)).people);
+        const db = openDb(paths.db);
+        try {
+          const result = findExperts(db, path, resolve, {
+            limit,
+            sinceDays,
+            sourceIds: values.source,
+          });
+          process.stdout.write(
+            values.json ? `${JSON.stringify(result, null, 2)}\n` : formatExperts(result),
+          );
+        } finally {
+          db.close();
+        }
         return 0;
       }
       case 'people': {

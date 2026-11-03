@@ -57,7 +57,7 @@ Waymark collects that knowledge and keeps it as plain markdown you own. It serve
 - **Its own identity.** Waymark reads each source as its own app or service account, never as you ([ADR-0002](docs/adr/0002-own-identity.md), [setup per source](docs/identities.md)).
 - **Who touched what.**
   - Every commit, PR and repo doc is indexed with the files it touches and who touched them, as authors, reviewers and commenters.
-  - One person is recognised across git names, logins and chat names ([docs/memory.md](docs/memory.md)).
+  - One person is recognised across git names, logins and chat names; `waymark experts <path>` ranks who to ask with evidence ([docs/memory.md](docs/memory.md)).
 - **Ready for a team.**
   - Users, groups, linked chat identities and API tokens, with only token hashes stored ([ADR-0003](docs/adr/0003-team-server.md)).
   - A chat-bot runtime with user mapping and rate limits ([docs/bots.md](docs/bots.md)).
@@ -143,7 +143,7 @@ waymark search "why sqlite"
 claude mcp add waymark -- waymark mcp
 ```
 
-That gives Claude Code the `search`, `get_document`, `save_note` and handoff tools. Add the lifecycle hooks to capture sessions as well: [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [any MCP client](docs/mcp.md).
+That gives Claude Code the `search`, `who_knows`, `get_document`, `save_note` and handoff tools. Add the lifecycle hooks to capture sessions as well: [Claude Code](docs/claude-code.md) · [Cursor](docs/cursor.md) · [Hermes Agent](docs/hermes.md) · [any MCP client](docs/mcp.md).
 
 ## Sources
 
@@ -164,20 +164,22 @@ Secrets never go in `config.json`; they come from environment variables listed p
 <details>
 <summary>All commands</summary>
 
-| Command                                  | What it does                                                                                                      |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `waymark init`                           | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/`                               |
-| `waymark sync [--source <id>]`           | Pull new and changed documents from every source (or one)                                                         |
-| `waymark search "<query>"`               | Ranked, source-linked results                                                                                     |
-| `waymark show <id>`                      | Print one document                                                                                                |
-| `waymark embed`                          | Embed new or changed documents (when `embeddings` is configured)                                                  |
-| `waymark reindex`                        | Rebuild the index from the markdown wiki                                                                          |
-| `waymark mcp`                            | MCP server over stdio                                                                                             |
-| `waymark hook <harness>`                 | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
-| `waymark llm test`                       | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
-| `waymark people [--json]`                | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
-| `waymark user ...` / `waymark token ...` | Manage users, groups, linked identities and API tokens (see [docs/server.md](docs/server.md))                     |
-| `waymark bot test <platform> ...`        | Run the chat-bot pipeline with a console adapter (see [docs/bots.md](docs/bots.md))                               |
+| Command                                                                                             | What it does                                                                                                      |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `waymark init`                                                                                      | Create `$WAYMARK_HOME` (default `~/.waymark`) with `config.json`, `wiki/` and `db/`                               |
+| `waymark sync [--source <id>]`                                                                      | Pull new and changed documents from every source (or one)                                                         |
+| `waymark search "<query>"`                                                                          | Ranked, source-linked results                                                                                     |
+| `waymark show <id>`                                                                                 | Print one document                                                                                                |
+| `waymark embed`                                                                                     | Embed new or changed documents (when `embeddings` is configured)                                                  |
+| `waymark reindex`                                                                                   | Rebuild the index from the markdown wiki                                                                          |
+| `waymark mcp`                                                                                       | MCP server over stdio                                                                                             |
+| `waymark hook <harness>`                                                                            | Lifecycle hook handler for `claude-code`, `cursor` or `hermes`                                                    |
+| `waymark llm test`                                                                                  | Check the optional `llm` setup (see [docs/memory.md](docs/memory.md))                                             |
+| `waymark experts <path> [--since <days>] [--limit <n>] [--source <id>]... [--json]`                 | Rank people who know a file or directory, with evidence ([docs/memory.md](docs/memory.md))                        |
+| `waymark audit [--since <ISO or Nd>] [--until <ISO>] [--user <name>] [--event <e>]... [--outcome ok | denied                                                                                                            | error] [--limit <n>] [--json]` | Read and filter local append-only audit events ([docs/server.md](docs/server.md)) |
+| `waymark people [--json]`                                                                           | List person names seen in the index, grouped by canonical name (see `people` in [docs/memory.md](docs/memory.md)) |
+| `waymark user ...` / `waymark token ...`                                                            | Manage users, groups, linked identities and API tokens (see [docs/server.md](docs/server.md))                     |
+| `waymark bot test <platform> ...`                                                                   | Run the chat-bot pipeline with a console adapter (see [docs/bots.md](docs/bots.md))                               |
 
 </details>
 
@@ -187,8 +189,8 @@ Secrets never go in `config.json`; they come from environment variables listed p
 - ✅ Hybrid retrieval: embeddings, rank fusion, recency ([#15](https://github.com/AlanEdward19/waymark/issues/15))
 - ✅ Agent hooks and handoffs for Claude Code, Cursor and Hermes ([#17](https://github.com/AlanEdward19/waymark/issues/17))
 - 🚧 More connectors with Waymark's own identity ([#20](https://github.com/AlanEdward19/waymark/issues/20)), validated against real accounts ([#77](https://github.com/AlanEdward19/waymark/issues/77))
-- 🚧 Organisational memory ([#16](https://github.com/AlanEdward19/waymark/issues/16)): path facts and people aliases shipped; expertise map, conventions and conflict-aware ranking next
-- 🚧 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18)): users and tokens shipped; team server, audit and access control next
+- 🚧 Organisational memory ([#16](https://github.com/AlanEdward19/waymark/issues/16)): path facts, people aliases, expertise and supersession flags shipped; conventions and conflict-aware ranking next
+- 🚧 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18)): users, tokens and local audit shipped; team server and access control next
 - 🚧 Chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19)): runtime shipped; Teams, Slack, Discord, GitHub and Linear next
 - 🔜 AI teammates on your own runtime ([#116](https://github.com/AlanEdward19/waymark/issues/116), [ADR-0004](docs/adr/0004-teammates.md))
 

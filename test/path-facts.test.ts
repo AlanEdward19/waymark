@@ -154,11 +154,11 @@ describe('path_facts index', () => {
     first
       .prepare('INSERT INTO vecs (chunk_id, embedding) VALUES (?, ?)')
       .run(1n, Buffer.from(new Float32Array([1, 0]).buffer));
-    first.exec('DROP TABLE path_facts');
+    first.exec('DROP TABLE doc_flags; DROP TABLE path_facts');
     first.pragma('user_version = 2');
     first.close();
     const migrated = openDb(file);
-    expect(migrated.pragma('user_version', { simple: true })).toBe(3);
+    expect(migrated.pragma('user_version', { simple: true })).toBe(4);
     const n = (t: string) => migrated.prepare(`SELECT count(*) AS n FROM ${t}`).get();
     expect(n('docs')).toEqual({ n: 1 });
     expect(n('chunks')).toEqual({ n: 1 });
@@ -173,7 +173,7 @@ describe('path_facts index', () => {
     const again = openDb(file);
     expect(factsByDocId(again, 'src/commit/abc').length).toBeGreaterThan(0);
     expect(schema(again)).toEqual(before);
-    expect(again.pragma('user_version', { simple: true })).toBe(3);
+    expect(again.pragma('user_version', { simple: true })).toBe(4);
     again.close();
   });
 
@@ -357,7 +357,7 @@ describe('spoofing and upgrade', () => {
     const file = path.join(dir, 'db', 'w.db');
     const first = openDb(file);
     upsertDoc(first, commit(['a.ts']), 'p');
-    first.exec('DROP TABLE path_facts');
+    first.exec('DROP TABLE doc_flags; DROP TABLE path_facts');
     first.pragma('user_version = 2');
     first.close();
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);

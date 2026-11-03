@@ -3,12 +3,29 @@ import path from 'node:path';
 import { redact } from './redact.js';
 
 export type AuditOutcome = 'ok' | 'denied' | 'error';
+export type AuditEventName =
+  | 'auth.denied'
+  | 'user.created'
+  | 'user.updated'
+  | 'user.linked'
+  | 'user.unlinked'
+  | 'token.created'
+  | 'token.revoked'
+  | 'search'
+  | 'document.read'
+  | 'note.saved'
+  | 'handoff.created'
+  | 'handoff.claimed'
+  | 'session.saved'
+  | 'bot.ask';
 
 export interface AuditEvent {
   at: string;
-  event: string;
+  event: AuditEventName;
   outcome: AuditOutcome;
   user: string | null;
+  tokenId?: string;
+  ip?: string;
   via: string;
   object: string | null;
   detail: Record<string, unknown>;
@@ -25,22 +42,39 @@ const clean = (v: unknown): unknown => {
   }
   if (Array.isArray(v)) return v.map(clean);
   if (v !== null && typeof v === 'object') {
-    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clean(x)]));
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [clean(k), clean(x)]));
   }
   return v;
 };
 
 /** Line written for an event: JSON, cleaned, newline-terminated. */
-export const auditLine = (event: AuditEvent): string => `${JSON.stringify(clean(event))}\n`;
+export const auditLine = (event: AuditEvent, options: { queries?: boolean } = {}): string => {
+  let detail = event.detail;
+  if (event.event === 'search' && typeof detail.query === 'string' && !options.queries) {
+    const { query, ...rest } = detail;
+    detail = { ...rest, queryChars: query.length };
+  }
+  return `${JSON.stringify(clean({ ...event, detail }))}\n`;
+};
 
 /**
  * Append-only sink writing `<dir>/YYYY-MM.jsonl` (UTC month of `at`). The write is synchronous,
  * so an event logged before a reply is on disk before the reply is sent.
  */
-export function fileAuditSink(dir: string): AuditSink {
+export function fileAuditSink(dir: string, options: { queries?: boolean } = {}): AuditSink {
   return (event) => {
+    const date = new Date(event.at);
+    if (!Number.isFinite(date.getTime()))
+      throw new Error('Invalid audit timestamp: use an ISO UTC date');
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const file = path.join(dir, `${event.at.slice(0, 7)}.jsonl`);
-    fs.appendFileSync(file, auditLine(event), { mode: 0o600, flag: 'a' });
+    const file = path.join(dir, `${date.toISOString().slice(0, 7)}.jsonl`);
+    try {
+      fs.appendFileSync(file, auditLine({ ...event, at: date.toISOString() }, options), {
+        mode: 0o600,
+        flag: 'a',
+      });
+    } catch (err) {
+      throw new Error(`Cannot append audit log ${file}: ${(err as Error).message}`);
+    }
   };
 }

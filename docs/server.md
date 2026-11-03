@@ -37,3 +37,45 @@ waymark token revoke tok_1a2b3c4d5e6f7a8b
   be recovered: revoke it and create another. Send them in an `Authorization` header or an
   environment variable, never in a URL.
 - Secrets pasted into notes are redacted, including `wmk_` tokens.
+
+## Audit log
+
+Security events are appended to `$WAYMARK_HOME/audit/YYYY-MM.jsonl`, using the UTC month.
+Each JSON line records `at` (ISO UTC), `event`, `outcome` (`ok`, `denied`, or `error`),
+`user`, `via`, `object`, and event-specific `detail`. Network producers can also provide `ip`
+and `tokenId`; token IDs identify credentials without exposing their secret values.
+Local account changes use `user: owner` and `via: cli`. Listing accounts and local CLI
+search/show do not create events. Network read/write producers are added with the network server.
+
+```bash
+waymark audit --since 7d --user alice
+waymark audit --since 2026-11-01 --until 2026-12-01 --event user.created --event token.created
+waymark audit --outcome denied --limit 50 --json
+```
+
+The reader selects overlapping monthly files, prints newest events first (100 by default),
+and skips malformed lines with one stderr warning per affected file. `--json` emits JSON Lines;
+text output includes the timestamp, event, outcome, user, channel, address and a compact summary.
+ISO dates and timestamps with a timezone are accepted; date-only boundaries mean midnight UTC.
+
+Query text is private by default: search events store `detail.queryChars` instead of the query.
+To include redacted query text, add `"audit": { "queries": true }` to `config.json`.
+Bot questions follow the same config switch. All event strings are redacted and control
+characters escaped; producers must never include raw tokens, hashes, request bodies or document text.
+Account events contain IDs and small metadata, never the generated token.
+
+The writer only appends, creates directories with mode `0o700` and files with `0o600` where
+supported, and completes the write before returning. On Windows, keep `WAYMARK_HOME` under
+private NTFS ACLs. Audit logs are state, not an index cache: back them up with account state.
+Waymark never expires or deletes logs; admins should set retention appropriate to their team,
+archive old monthly files, and delete expired archives themselves. Query logging can retain
+sensitive business information even after secret redaction.
+
+```bash
+# Which credentials were used, from where?
+jq -c 'select(.tokenId != null) | {at,user,tokenId,ip,event}' "$WAYMARK_HOME"/audit/*.jsonl
+# Who read a particular document?
+jq -c 'select(.event == "document.read" and .object == "notes/note/design") | {at,user,via,ip}' "$WAYMARK_HOME"/audit/*.jsonl
+# Account changes from the local CLI
+waymark audit --event user.created --event token.revoked --json | jq '{at,event,object}'
+```

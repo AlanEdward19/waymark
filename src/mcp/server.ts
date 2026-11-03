@@ -6,6 +6,9 @@ import { loadConfig } from '../config.js';
 import { type Db, openDb, upsertDoc } from '../index/db.js';
 import { formatHits } from '../index/format.js';
 import { hybridSearch, type QueryEmbedder, queryEmbedderFrom } from '../index/hybrid.js';
+import { findExperts, formatExperts } from '../memory/experts.js';
+import { createPeopleResolver, type PeopleResolver } from '../memory/people.js';
+import { formatDocumentFlags, getDocumentFlags } from '../memory/supersession.js';
 import type { WaymarkPaths } from '../paths.js';
 import { DOC_KINDS, docRelPath, noteStampId } from '../store/doc.js';
 import { readDoc, serializeDoc, writeDoc } from '../store/markdown.js';
@@ -29,8 +32,10 @@ export function createServer(deps: {
   db: Db;
   wikiDir: string;
   embedQuery?: QueryEmbedder;
+  resolvePerson?: PeopleResolver;
 }): McpServer {
   const { db, wikiDir, embedQuery } = deps;
+  const resolvePerson = deps.resolvePerson ?? createPeopleResolver();
   const server = new McpServer({ name: 'waymark', version: '0.0.0' });
 
   server.registerTool(
@@ -58,6 +63,34 @@ export function createServer(deps: {
   );
 
   server.registerTool(
+    'who_knows',
+    {
+      title: 'Find path experts',
+      description:
+        'Find the people who know a file or directory best, from commit history, pull request reviews and review comments. Use before changing unfamiliar code to know whom to ask or which reviewer to request.',
+      inputSchema: z.object({
+        path: z.string(),
+        limit: z.number().int().min(1).max(20).optional(),
+        since_days: z.number().int().min(1).optional(),
+        sources: z.array(z.string()).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    ({ path, limit, since_days, sources }) =>
+      guard(() =>
+        text(
+          formatExperts(
+            findExperts(db, path, resolvePerson, {
+              limit,
+              sinceDays: since_days,
+              sourceIds: sources,
+            }),
+          ),
+        ),
+      ),
+  );
+
+  server.registerTool(
     'get_document',
     {
       title: 'Get document',
@@ -75,7 +108,13 @@ export function createServer(deps: {
           // invalid ids are "not found"; real read/parse errors surface via guard
           if (!(err instanceof Error && err.message.startsWith('Invalid document id'))) throw err;
         }
-        return doc ? text(serializeDoc(doc)) : fail(`Document not found: ${id}`);
+        return doc
+          ? text(
+              [formatDocumentFlags(getDocumentFlags(db, id)), serializeDoc(doc)]
+                .filter(Boolean)
+                .join('\n\n'),
+            )
+          : fail(`Document not found: ${id}`);
       }),
   );
 
@@ -84,16 +123,27 @@ export function createServer(deps: {
     {
       title: 'Save note',
       description:
-        "Save a durable note to the team's knowledge base: a decision, convention, gotcha or finding worth remembering across sessions. Do not save secrets or transient progress.",
+        "Save a durable note to the team's knowledge base: a decision, convention, gotcha or finding worth remembering across sessions. Do not save secrets or transient progress. Pass supersedes with the ids of notes this one replaces.",
       inputSchema: z.object({
         title: z.string().min(1).max(200),
         body: z.string().min(1),
         tags: z.array(z.string()).max(20).optional(),
+        supersedes: z.array(z.string()).max(10).optional(),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
-    ({ title, body, tags }) =>
+    ({ title, body, tags, supersedes }) =>
       guard(async () => {
+        for (const id of supersedes ?? []) {
+          let target: Awaited<ReturnType<typeof readDoc>> = null;
+          try {
+            target = await readDoc(wikiDir, id);
+          } catch (err) {
+            if (!(err instanceof Error && err.message.startsWith('Invalid document id'))) throw err;
+          }
+          if (!target) throw new Error(`Note not found: ${id}`);
+          if (target.kind !== 'note') throw new Error(`Cannot supersede ${id}: not a note`);
+        }
         const nowDate = new Date();
         const now = nowDate.toISOString();
         const id = noteStampId('note', title, nowDate);
@@ -105,7 +155,10 @@ export function createServer(deps: {
           authors: [],
           createdAt: now,
           updatedAt: now,
-          tags: tags ?? [],
+          tags: [
+            ...(tags ?? []).filter((tag) => !tag.startsWith('supersedes:')),
+            ...(supersedes ?? []).map((id) => `supersedes:${id}`),
+          ],
           body,
         });
         upsertDoc(db, stored, docRelPath(id));
@@ -185,8 +238,14 @@ export function createServer(deps: {
 
 export async function runStdio(paths: WaymarkPaths): Promise<void> {
   // throws "not initialised" before anything is connected
-  const embedQuery = queryEmbedderFrom(await loadConfig(paths));
+  const config = await loadConfig(paths);
+  const embedQuery = queryEmbedderFrom(config);
   const db = openDb(paths.db);
-  const server = createServer({ db, wikiDir: paths.wiki, embedQuery });
+  const server = createServer({
+    db,
+    wikiDir: paths.wiki,
+    embedQuery,
+    resolvePerson: createPeopleResolver(config.people),
+  });
   await server.connect(new StdioServerTransport());
 }

@@ -26,7 +26,7 @@ bob  (3 docs)
   aliases seen: bob (waymark-gh 3)
 ```
 
-`waymark people --json` prints `[{ name, total, aliases: [{ alias, bySource: { <sourceId>: count } }] }]`. Names ending in `[bot]` are listed last under a `bots` heading. Excluding bots from expertise and convention features is planned future work; today the command only lists them apart. Authors shaped like an e-mail address are never listed.
+`waymark people --json` prints `[{ name, total, aliases: [{ alias, bySource: { <sourceId>: count } }] }]`. Names ending in `[bot]` are listed last under a `bots` heading. Expertise excludes bots; the people command lists them apart. Authors shaped like an e-mail address are never listed.
 
 ## LLM (optional)
 
@@ -59,3 +59,36 @@ Waymark indexes which repository paths each commit, pull request and repo doc to
 
 - GitHub pull request documents end with a `## Files` section (at most 1000 files). Fetching it costs one extra `pulls.listFiles` API call per 100 changed files of each synced pull request.
 - Upgrading: the first run on an existing index derives facts from the documents already stored. Pull requests synced before the upgrade have no `## Files` section until they are updated on GitHub and re-synced, because sync is incremental.
+
+## Expertise
+
+`waymark experts <path> [--since <days>] [--limit <n>] [--source <id>]... [--json]` ranks people from indexed path facts, without an LLM. A file matches exactly; a directory matches whole path segments. A trailing `/` is ignored; `.` or an empty path queries the whole repository. Names use the `people` aliases above.
+
+Each person's document and role count once, using its most recent activity even when a commit touches many matching files. Contributions decay with a 180-day half-life:
+
+| Role             | Weight | Half-life |
+| ---------------- | ------ | --------- |
+| Commit author    | 1.0    | 180 days  |
+| Review commenter | 0.8    | 180 days  |
+| Reviewer         | 0.6    | 180 days  |
+| PR author        | 0.5    | 180 days  |
+
+Scores sum `weight × 0.5 ^ (ageDays / 180)` and ties use the most recent activity. Results default to 5 people (maximum 20), with counts and up to 3 recent distinct document ids per person. `--since` requires a positive integer number of days; `--source` can repeat. JSON contains `path`, `documents`, and `experts` with `name`, `score` (one decimal), `lastActive`, role `counts` and `evidence`.
+
+Empty people and canonical names ending in `[bot]` are excluded. Sources and older synced documents without file lists contribute no expertise; sync supported git/GitHub sources with path facts first. Repo document path tags identify files but do not contribute person scores. The MCP `who_knows` tool returns the same explained text.
+
+## Conflicts and supersession
+
+The index derives document flags from content and rebuilds them on upsert, deletion and reindex. Stored source markdown stays unchanged. `waymark show` and MCP `get_document` prefix flagged documents with `> Note:` warnings.
+
+| Signal                                                | Result                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| ADR status begins with Superseded                     | `superseded`; resolves another ADR in the same source from its number or relative Markdown link when possible |
+| ADR status begins with Deprecated or Rejected         | `deprecated`                                                                                                  |
+| Commit contains `This reverts commit <40-hex sha>.`   | Target commit is `reverted` by that commit, even before the target is indexed                                 |
+| Issue tagged `state:not_planned` or `state:duplicate` | `not_planned`                                                                                                 |
+| Note tagged `supersedes:<note id>`                    | Target note is `superseded` by that note                                                                      |
+
+ADR status matching accepts list items, bold text and case differences. Self-references are ignored; multiple flags can apply. Removing a reverting commit or replacing note also removes the flags it created. These flags do not yet change search ranking.
+
+Pass `supersedes: ["agent/note/<old-id>"]` to MCP `save_note` to replace up to 10 notes. All targets must exist and be notes; validation completes before writing anything. The new note stores the supersession tags, and the old note's file is untouched.

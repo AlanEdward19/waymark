@@ -1,3 +1,4 @@
+import { type AuditEventName, type AuditSink, fileAuditSink } from '../audit.js';
 import { printable } from '../memory/people.js';
 import type { WaymarkPaths } from '../paths.js';
 import {
@@ -72,7 +73,9 @@ function checkUsage(command: string, args: string[], flags: AuthFlags): void {
   }
 }
 
-function userCommand(db: AuthDb, args: string[], f: AuthFlags): string {
+type Log = (event: AuditEventName, object: string, detail?: Record<string, unknown>) => void;
+
+function userCommand(db: AuthDb, args: string[], f: AuthFlags, log: Log): string {
   const [sub, name, ...rest] = args;
   switch (sub) {
     case 'add': {
@@ -81,6 +84,7 @@ function userCommand(db: AuthDb, args: string[], f: AuthFlags): string {
           'usage: waymark user add <name> [--display <text>] [--admin] [--group <g>]...',
         );
       addUser(db, { name, displayName: f.display, admin: f.admin, groups: f.group });
+      log('user.created', name, { role: f.admin ? 'admin' : 'member', groups: f.group ?? [] });
       return `Created user ${name}\n`;
     }
     case 'list': {
@@ -109,6 +113,12 @@ function userCommand(db: AuthDb, args: string[], f: AuthFlags): string {
         groups: f.group,
         disabled: f.disable ? true : f.enable ? false : undefined,
       });
+      log('user.updated', name, {
+        role: f.admin ? 'admin' : f.member ? 'member' : undefined,
+        groups: f.group,
+        disabled: f.disable ? true : f.enable ? false : undefined,
+        displayName: f.display,
+      });
       return `Updated user ${name}\n`;
     }
     case 'link': {
@@ -117,12 +127,14 @@ function userCommand(db: AuthDb, args: string[], f: AuthFlags): string {
         throw new Error('usage: waymark user link <name> <provider> <externalId>');
       }
       linkIdentity(db, name, provider, externalId);
+      log('user.linked', name, { provider });
       return `Linked ${name} to ${provider}:${externalId}\n`;
     }
     case 'unlink': {
       const [provider] = rest;
       if (!name || !provider) throw new Error('usage: waymark user unlink <name> <provider>');
       unlinkIdentity(db, name, provider);
+      log('user.unlinked', name, { provider });
       return `Unlinked ${name} from ${provider}\n`;
     }
     default:
@@ -130,7 +142,7 @@ function userCommand(db: AuthDb, args: string[], f: AuthFlags): string {
   }
 }
 
-function tokenCommand(db: AuthDb, args: string[], f: AuthFlags): string {
+function tokenCommand(db: AuthDb, args: string[], f: AuthFlags, log: Log): string {
   const [sub, arg] = args;
   switch (sub) {
     case 'create': {
@@ -141,6 +153,7 @@ function tokenCommand(db: AuthDb, args: string[], f: AuthFlags): string {
         label: f.label,
         expiresDays: f.expires,
       });
+      log('token.created', info.id, { user: arg, label: info.label, expiresAt: info.expiresAt });
       process.stderr.write(`Token ${info.id} for ${arg}. Store it now: it is not shown again.\n`);
       return `${token}\n`;
     }
@@ -163,6 +176,7 @@ function tokenCommand(db: AuthDb, args: string[], f: AuthFlags): string {
     case 'revoke': {
       if (!arg) throw new Error('usage: waymark token revoke <id>');
       revokeToken(db, arg);
+      log('token.revoked', arg);
       return `Revoked ${arg}\n`;
     }
     default:
@@ -175,11 +189,24 @@ export function runAuthCommand(
   args: string[],
   flags: AuthFlags,
   paths: WaymarkPaths,
+  audit: AuditSink = fileAuditSink(paths.audit),
 ): string {
   checkUsage(command, args, flags);
   const db = openAuthDb(paths.authDb);
+  const log: Log = (event, object, detail = {}) =>
+    audit({
+      at: new Date().toISOString(),
+      event,
+      object,
+      detail,
+      outcome: 'ok',
+      user: 'owner',
+      via: 'cli',
+    });
   try {
-    return command === 'user' ? userCommand(db, args, flags) : tokenCommand(db, args, flags);
+    return command === 'user'
+      ? userCommand(db, args, flags, log)
+      : tokenCommand(db, args, flags, log);
   } finally {
     db.close();
   }
