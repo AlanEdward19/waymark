@@ -88,7 +88,7 @@ A teammate is an AI agent your team configures in Waymark, starts from a chat me
 - your sandbox;
 - your infrastructure.
 
-Waymark never runs model-generated code itself. The design is [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Writing code, merging and scheduled monitors come later.
+Waymark never runs model-generated code itself. The design is [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Proposing fixes as pull requests comes later.
 
 ### How Waymark fits an agentic factory
 
