@@ -83,7 +83,7 @@ A teammate is configured in `config.json` and validated by zod like every other 
 ### 3. Playbooks
 
 A playbook is a YAML file at `$WAYMARK_HOME/playbooks/<name>.yaml`. It is meant to be versioned in
-git and edited by hand or by the portal, and Waymark exports a JSON Schema for editors.
+git and edited by hand or by any editor, and Waymark exports a JSON Schema for editors.
 
 ```yaml
 version: 1
@@ -295,7 +295,7 @@ evidence. The brain then remembers past investigations, and the next one starts 
 - Teams can run teammates on infrastructure they already pay for and switch runtimes without
   changing playbooks.
 - v1 is **observe-only**: teammates investigate and report or file cards. Writing code (`propose`),
-  merging and deploying (`act`), scheduled monitors and the portal playbook builder are later phases
+  merging and deploying (`act`), and scheduled monitors are later phases
   of the same epic.
 - The quality of an investigation depends on the system map and on read-only tool coverage.
   Operators must maintain `catalog-info.yaml` and grant read-only credentials.
