@@ -1,3 +1,4 @@
+import { lf } from '../text.js';
 import type { GhIssueComment, GhUser } from './api.js';
 
 // true when the user is missing or a bot
@@ -5,7 +6,7 @@ export const isBot = (u: GhUser | null) =>
   u === null || u.type === 'Bot' || u.login.endsWith('[bot]');
 export const day = (iso: string) => iso.slice(0, 10);
 // GitHub bodies often use CRLF; a lone CR is a line break in CommonMark
-export const lf = (text: string) => text.replace(/\r\n?/g, '\n');
+export { lf } from '../text.js';
 // a body line that looks like a generated `- **@login** (date)` bullet is escaped so it cannot forge one
 export const indent = (text: string, pad: string) =>
   lf(text)

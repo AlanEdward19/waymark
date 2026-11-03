@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { loadConfig, type SourceConfig } from './config.js';
+import { confluenceConnector } from './connectors/atlassian/confluence.js';
 import { azureDevOpsConnector } from './connectors/azure-devops/index.js';
 import { discordConnector } from './connectors/discord.js';
 import { gitConnector } from './connectors/git.js';
@@ -18,6 +19,8 @@ import { commitWiki } from './store/wikigit.js';
 
 function buildConnector(source: SourceConfig, configDir: string): Connector {
   switch (source.type) {
+    case 'confluence':
+      return confluenceConnector(source);
     case 'azure-devops':
       return azureDevOpsConnector(source);
     case 'discord':

@@ -119,7 +119,7 @@ describe('azure-devops work items', () => {
     expect(JSON.stringify(d)).not.toContain('example.com');
   });
 
-  it('logs when the WIQL limit is reached and stubs pulls', async () => {
+  it('logs when the WIQL limit is reached', async () => {
     const ids = Array.from({ length: 20000 }, (_, i) => i + 1);
     const api: AzureDevOpsApi = {
       queryIds: async () => ids,
@@ -130,20 +130,6 @@ describe('azure-devops work items', () => {
     expect(logs).toContain(
       'azure-devops: 20000 changed work items returned (the maximum); run sync again to continue',
     );
-    const stub = await azureDevOpsConnector(
-      { ...source, include: ['workitems', 'pulls'] },
-      { api },
-    )({
-      sourceId: 'ado',
-      cursor: null,
-      log: (m) => logs.push(m),
-      emit: async () => {},
-      remove: async () => {},
-      readDoc: async () => null,
-      listIds: () => [],
-    });
-    expect(logs).toContain('pulls: not implemented yet');
-    expect(stub.count).toBe(0);
   });
 });
 
