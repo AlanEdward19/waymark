@@ -8,8 +8,9 @@
 <h3 align="center">Ask "why is it built this way?" and get the PR, the issue and the commit that answer it.</h3>
 
 <p align="center">
-  An open-source, self-hosted context layer that turns your repos, trackers, docs and chats into one<br>
-  searchable, source-linked memory for your team and its AI coding agents.
+  Waymark is the open-source, self-hosted memory for your team and its AI agents. It turns your repos,<br>
+  trackers, docs and chats into one searchable, source-linked knowledge base. Next, it will run AI teammates<br>
+  that work from that knowledge, on the agent runtime you already have.
 </p>
 
 <p align="center">
@@ -31,7 +32,13 @@
 
 ## Why
 
-AI coding agents are only as good as the context they get. The reasons behind your code live in PR reviews, issue threads, design docs and chat, and most of it never reaches the agent, or the new teammate. Waymark collects it, keeps it as plain markdown you own, and serves it back with a link to where every fact came from.
+AI agents are only as good as the context they get.
+
+- Code-intelligence tools know **what** the code is.
+- Agent platforms know **how** to run an agent.
+- The **why** lives in PR reviews, issue threads, design docs, incidents and chat. So does who owns which system, and how data flows from one service to the next. Most of that never reaches the agent, or the new hire.
+
+Waymark collects that knowledge and keeps it as plain markdown you own. It serves it back to people and agents, with a link to where every fact came from.
 
 <p align="center">
   <picture>
@@ -40,7 +47,7 @@ AI coding agents are only as good as the context they get. The reasons behind yo
   </picture>
 </p>
 
-## What you get
+## What you get today
 
 - **One search across sources.** Commits and repo docs, GitHub PRs, reviews and issues, Linear, Jira, Notion, Discord and Azure DevOps work items today; Azure DevOps pull requests, Confluence, Slack and Teams are next ([#20](https://github.com/AlanEdward19/waymark/issues/20)).
 - **Answers with receipts.** Every hit links back to the commit, PR, issue or page it came from.
@@ -48,6 +55,56 @@ AI coding agents are only as good as the context they get. The reasons behind yo
 - **Plain files you own.** The wiki is markdown in a git repository; the SQLite index (full-text plus optional vectors) is rebuildable at any time with `waymark reindex`.
 - **No LLM required.** Sync, search, capture and handoffs work offline with zero API keys. Semantic search is an opt-in upgrade with any OpenAI-compatible embeddings endpoint, including a local one ([docs/search.md](docs/search.md)). An optional OpenAI-compatible `llm` for text generation stays optional too ([docs/memory.md](docs/memory.md)).
 - **Its own identity.** Waymark reads each source as its own app or service account, never as you ([ADR-0002](docs/adr/0002-own-identity.md), [setup per source](docs/identities.md)).
+- **Who touched what.**
+  - Every commit, PR and repo doc is indexed with the files it touches and who touched them, as authors, reviewers and commenters.
+  - One person is recognised across git names, logins and chat names ([docs/memory.md](docs/memory.md)).
+- **Ready for a team.**
+  - Users, groups, linked chat identities and API tokens, with only token hashes stored ([ADR-0003](docs/adr/0003-team-server.md)).
+  - A chat-bot runtime with user mapping and rate limits ([docs/bots.md](docs/bots.md)).
+
+## Where it is going: AI teammates
+
+A teammate is an AI agent your team configures in Waymark, starts from a chat mention or the CLI, and points at a playbook. Here is an example.
+
+> Someone notices that a day of currency data is blank and mentions the bot in Teams. The teammate uses the system map to see that the data comes from service X, which is fed by CDC replication from another database. It works through the chain:
+>
+> 1. It checks the API, the service database and the source database, and finds the gap in the replication.
+> 2. It reads the CDC project's logs and code, and finds the commit that introduced the bug.
+> 3. It replies in the thread with the evidence, or files a card for a human with the full write-up.
+
+**What Waymark provides:**
+
+- the teammate's identity;
+- the triggers;
+- playbooks with stages, budgets and routing;
+- the knowledge;
+- a default-deny, audited gateway to your tools;
+- structured verdicts that must cite real evidence.
+
+**What stays with you:**
+
+- the agent itself (Claude Code, Hermes Agent or any CLI agent), on your own machine or VM, through pull-only runners that need no inbound port;
+- your model keys;
+- your sandbox;
+- your infrastructure.
+
+Waymark never runs model-generated code itself. The design is [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115) and the work is tracked in [#116](https://github.com/AlanEdward19/waymark/issues/116). The first phase is investigate-and-report. Writing code, merging, scheduled monitors and a setup portal come later.
+
+### How Waymark fits an agentic factory
+
+| Layer | What it needs | Waymark |
+|---|---|---|
+| Brain | Code, docs and decisions, the same for people and agents | ✅ today: connectors, hybrid search, MCP, hooks, handoffs, path facts |
+| Identity | Apps and bots that act as the system, not as a person | ✅ today: own identity per source, users and tokens |
+| Work intake | Chat mentions, trackers, alerts | 🚧 chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19)) |
+| Control | Playbook contract, dispatch, routing | 🔜 teammates ([#116](https://github.com/AlanEdward19/waymark/issues/116)) |
+| Execution | Agent runtime, sandbox, tools | Yours. Waymark plugs in through runners and a tool gateway ([#116](https://github.com/AlanEdward19/waymark/issues/116)) |
+| Quality | Evidence-checked verdicts, audit, evals | 🔜 verdicts and audit ([#116](https://github.com/AlanEdward19/waymark/issues/116), [#94](https://github.com/AlanEdward19/waymark/issues/94)); evals later |
+
+Waymark is meant to sit alongside the tools you already use:
+
+- **MCP servers.** Any of them, including code-search and code-intelligence servers, can become a teammate tool behind the gateway.
+- **Agent platforms.** Any platform that speaks MCP can use Waymark as its memory.
 
 ## Quick start
 
@@ -129,12 +186,13 @@ Secrets never go in `config.json`; they come from environment variables listed p
 - ✅ Hybrid retrieval: embeddings, rank fusion, recency ([#15](https://github.com/AlanEdward19/waymark/issues/15))
 - ✅ Agent hooks and handoffs for Claude Code, Cursor and Hermes ([#17](https://github.com/AlanEdward19/waymark/issues/17))
 - 🚧 More connectors with Waymark's own identity ([#20](https://github.com/AlanEdward19/waymark/issues/20)), validated against real accounts ([#77](https://github.com/AlanEdward19/waymark/issues/77))
+- 🚧 Organisational memory ([#16](https://github.com/AlanEdward19/waymark/issues/16)): path facts and people aliases shipped; expertise map, conventions and conflict-aware ranking next
+- 🚧 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18)): users and tokens shipped; team server, audit and access control next
+- 🚧 Chat bots ([#19](https://github.com/AlanEdward19/waymark/issues/19)): runtime shipped; Teams, Slack, Discord, GitHub and Linear next
 - 🚧 Optional local web portal for plug-and-play setup ([#81](https://github.com/AlanEdward19/waymark/issues/81))
-- 🔜 Organisational memory: conventions, expertise, conflicts ([#16](https://github.com/AlanEdward19/waymark/issues/16))
-- 🔜 Permissions, auth and remote access ([#18](https://github.com/AlanEdward19/waymark/issues/18))
-- 🔜 Chat bots for Teams, Slack, Discord, GitHub and Linear ([#19](https://github.com/AlanEdward19/waymark/issues/19))
+- 🔜 AI teammates on your own runtime ([#116](https://github.com/AlanEdward19/waymark/issues/116), [ADR-0004](https://github.com/AlanEdward19/waymark/pull/115))
 
-Waymark is not a hosted SaaS, not a chatbot and not an agent framework: it supplies context to the agents you already use. It never trains on your data.
+Waymark is self-hosted and model-agnostic. It works with no LLM at all, it never trains on your data, and it never runs your agents' code: your runtime does.
 
 ## Documentation
 
