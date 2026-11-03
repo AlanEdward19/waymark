@@ -79,6 +79,14 @@ export const NotionSourceSchema = z.object({
   // the internal integration "Waymark" is the identity; there is no personal fallback
   auth: Auth.refine((a) => a === 'app', { message: "notion sources only support auth: 'app'" }),
 });
+export const ConfluenceSourceSchema = z.object({
+  id: SourceId,
+  access: Access,
+  type: z.literal('confluence'),
+  auth: Auth,
+  site: z.string().regex(/^[a-z0-9-]+\.atlassian\.net$/),
+  spaces: z.array(z.string().min(1)).min(1),
+});
 export const AzureDevOpsSourceSchema = z.object({
   id: SourceId,
   access: Access,
@@ -86,11 +94,13 @@ export const AzureDevOpsSourceSchema = z.object({
   auth: Auth,
   organization: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/),
   project: z.string().min(1),
-  include: z.array(z.enum(['workitems', 'pulls'])).default(['workitems', 'pulls']),
-  repos: z.array(z.string().min(1)).optional(), // used by #54
+  include: z.array(z.enum(['workitems', 'pulls', 'wiki'])).default(['workitems', 'pulls']),
+  repos: z.array(z.string().min(1)).optional(),
+  wikis: z.array(z.string().min(1)).optional(),
 });
 export const SourceSchema = z.discriminatedUnion('type', [
   AzureDevOpsSourceSchema,
+  ConfluenceSourceSchema,
   DiscordSourceSchema,
   GitSourceSchema,
   GithubSourceSchema,
@@ -147,6 +157,7 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 export type BotsConfig = z.infer<typeof BotsSchema>;
 export type AzureDevOpsSource = z.infer<typeof AzureDevOpsSourceSchema>;
+export type ConfluenceSource = z.infer<typeof ConfluenceSourceSchema>;
 export type DiscordSource = z.infer<typeof DiscordSourceSchema>;
 export type GithubSource = z.infer<typeof GithubSourceSchema>;
 export type GithubSourceInput = z.input<typeof GithubSourceSchema>;

@@ -61,6 +61,27 @@ describe('loadConfig', () => {
     expect(cfg.sources[0]).toMatchObject({ include: ['workitems', 'pulls'], auth: 'app' });
   });
 
+  it('accepts opt-in Azure wiki and repository filters', async () => {
+    await write({
+      version: 1,
+      sources: [
+        {
+          id: 'ado',
+          type: 'azure-devops',
+          organization: 'contoso',
+          project: 'Shop',
+          include: ['pulls', 'wiki'],
+          repos: ['Shop'],
+          wikis: ['Handbook'],
+        },
+      ],
+    });
+    expect((await loadConfig(paths)).sources[0]).toMatchObject({
+      include: ['pulls', 'wiki'],
+      repos: ['Shop'],
+      wikis: ['Handbook'],
+    });
+  });
   it.each(['bad org', '-x', 'a/b'])(
     'rejects azure-devops organization %j',
     async (organization) => {

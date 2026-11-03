@@ -79,10 +79,26 @@ memory and renewed 5 minutes before they expire.
 { "id": "waymark-ado", "type": "azure-devops", "organization": "contoso", "project": "Shop" }
 ```
 
-`include` is `["workitems", "pulls"]` by default (pull requests are not implemented yet). Work
+`include` is `["workitems", "pulls"]` by default. Work
 items need read access to Boards (scope `vso.work`): the identity's access level is **Basic** and
 its group gets read-only permissions on the project (View work items in this node). Waymark stores
 display names only, never e-mail addresses.
+
+Pull requests need repository read access (`vso.code`). `repos` optionally limits repository names; omit it to read all accessible repositories. Draft PRs are skipped, and PR descriptions, review threads and changed paths are indexed.
+
+Wiki pages require wiki read access (the project Readers group is sufficient). Add `"wiki"` to `include` to enable them; `wikis` optionally limits wiki names. Pages sync in full and pages no longer present in the selected wikis are removed only after a successful complete scan.
+
+```json
+{
+  "id": "waymark-ado",
+  "type": "azure-devops",
+  "organization": "contoso",
+  "project": "Shop",
+  "include": ["workitems", "pulls", "wiki"],
+  "repos": ["Shop"],
+  "wikis": ["Shop.wiki"]
+}
+```
 
 ### Local testing with a personal token
 
@@ -138,10 +154,23 @@ Use exactly one of `project` (key) or `jql`. The service account needs Browse ac
 and the `read:jira-work` scope. Issues and comments are ingested as `issue` docs, incrementally by
 `updated`; only display names are stored, never e-mail addresses.
 
+### Confluence source
+
+```json
+{
+  "id": "waymark-confluence",
+  "type": "confluence",
+  "site": "acme.atlassian.net",
+  "spaces": ["ENG", "OPS"]
+}
+```
+
+Grant the service account access to the configured spaces only, with `read:page:confluence` and `read:space:confluence`. Current pages become `doc` documents with ADF bodies converted to markdown. Sync reads changes incrementally and scans current page ids each run to remove deleted or archived pages and pages in spaces removed from config. Failed inventories skip deletions. Page authors are empty because the API returns account ids.
+
 ### Local testing with a personal token
 
 `"auth": "personal"` uses your email plus an API token with Basic auth against
-`https://<site>` (`JIRA_EMAIL` and `JIRA_API_TOKEN` for Jira). Development only; it logs a warning on
+`https://<site>` (`JIRA_EMAIL` and `JIRA_API_TOKEN` for Jira; `CONFLUENCE_EMAIL` and `CONFLUENCE_API_TOKEN` for Confluence). Development only; it logs a warning on
 every sync.
 
 ### Rotate
